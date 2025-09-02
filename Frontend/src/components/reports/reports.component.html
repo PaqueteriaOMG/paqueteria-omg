@@ -1,0 +1,180 @@
+<div class="reports-page">
+  <div class="reports-header">
+    <h2 class="reports-title">Reportes y Estadísticas</h2>
+    <p class="reports-subtitle">Análisis detallado del rendimiento de envíos</p>
+  </div>
+
+  <div class="stats-overview" *ngIf="stats$ | async as stats">
+    <div class="stats-grid">
+      <div class="stat-card total">
+        <div class="stat-icon">
+          <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 6h-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v2H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zM8 4h8v2H8V4zm10 14H6v-8h12v8z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">Total de Paquetes</div>
+          <div class="stat-change positive">+12% vs mes anterior</div>
+        </div>
+      </div>
+
+      <div class="stat-card delivered">
+        <div class="stat-icon">
+          <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.delivered }}</div>
+          <div class="stat-label">Entregados</div>
+          <div class="stat-percentage">{{ getPercentage(stats.delivered, stats.total) }}% del total</div>
+        </div>
+      </div>
+
+      <div class="stat-card in-transit">
+        <div class="stat-icon">
+          <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11C5.84 5 5.28 5.42 5.08 6.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.in_transit }}</div>
+          <div class="stat-label">En Tránsito</div>
+          <div class="stat-percentage">{{ getPercentage(stats.in_transit, stats.total) }}% del total</div>
+        </div>
+      </div>
+
+      <div class="stat-card pending">
+        <div class="stat-icon">
+          <svg width="32" height="32" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.pending }}</div>
+          <div class="stat-label">Pendientes</div>
+          <div class="stat-percentage">{{ getPercentage(stats.pending, stats.total) }}% del total</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="reports-content">
+    <div class="chart-section card">
+      <div class="card-header">
+        <h3 class="card-title">Tendencia Mensual</h3>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-color delivered"></span>
+            <span>Entregados</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color in-transit"></span>
+            <span>En Tránsito</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color pending"></span>
+            <span>Pendientes</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-bars" *ngIf="monthlyData$ | async as monthlyData">
+          <div class="chart-bar" *ngFor="let data of monthlyData">
+            <div class="bar-container">
+              <div class="bar delivered" [style.height.%]="getBarHeight(data.delivered, getMaxValue(monthlyData))"></div>
+              <div class="bar in-transit" [style.height.%]="getBarHeight(data.in_transit, getMaxValue(monthlyData))"></div>
+              <div class="bar pending" [style.height.%]="getBarHeight(data.pending, getMaxValue(monthlyData))"></div>
+            </div>
+            <div class="bar-label">{{ data.month }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="performance-metrics card">
+      <div class="card-header">
+        <h3 class="card-title">Métricas de Rendimiento</h3>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <div class="metric-icon success">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-value">98.5%</div>
+            <div class="metric-label">Tasa de Entrega</div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon primary">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-value">2.3 días</div>
+            <div class="metric-label">Tiempo Promedio</div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon warning">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-value">1.2%</div>
+            <div class="metric-label">Tasa de Devolución</div>
+          </div>
+        </div>
+
+        <div class="metric-item">
+          <div class="metric-icon neutral">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-value">4.8/5</div>
+            <div class="metric-label">Satisfacción Cliente</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recent-activity card">
+      <div class="card-header">
+        <h3 class="card-title">Actividad Reciente</h3>
+      </div>
+      <div class="activity-list" *ngIf="packages$ | async as packages">
+        <div class="activity-item" *ngFor="let package of packages.slice(0, 8)">
+          <div class="activity-icon" [class]="'status-' + package.status">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+            </svg>
+          </div>
+          <div class="activity-content">
+            <div class="activity-title">{{ package.tracking_number }}</div>
+            <div class="activity-description">
+              {{ package.sender_name }} → {{ package.recipient_name }}
+            </div>
+            <div class="activity-status">
+              <span [class]="'status-badge status-' + package.status">
+                {{ getStatusText(package.status) }}
+              </span>
+            </div>
+          </div>
+          <div class="activity-time">
+            {{ formatRelativeTime(package.updated_at) }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

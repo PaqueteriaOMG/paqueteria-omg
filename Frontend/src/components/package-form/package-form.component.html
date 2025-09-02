@@ -1,0 +1,370 @@
+<div class="package-form">
+  <div class="form-header">
+    <button class="btn-back" (click)="goBack()">
+      <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"/>
+      </svg>
+      Volver
+    </button>
+    <div class="header-info">
+      <h2 class="form-title">{{ isEditMode ? 'Editar Paquete' : 'Nuevo Paquete' }}</h2>
+      <p class="form-subtitle">{{ isEditMode ? 'Actualizar información del paquete' : 'Ingresa los datos del nuevo envío' }}</p>
+    </div>
+  </div>
+
+  <form (ngSubmit)="onSubmit()" #packageForm="ngForm" class="package-form-content">
+    <div class="form-sections">
+      <!-- Información del Remitente -->
+      <div class="form-section card">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+            </svg>
+            Información del Remitente
+          </h3>
+        </div>
+        <div class="section-content">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nombre completo *</label>
+              <input
+                type="text"
+                [(ngModel)]="formData.sender_name"
+                name="senderName"
+                #senderName="ngModel"
+                required
+                minlength="2"
+                maxlength="100"
+                class="form-input"
+                [class.error]="senderName.invalid && senderName.touched"
+                placeholder="Ingresa el nombre del remitente"
+              >
+              <div class="error-message" *ngIf="senderName.invalid && senderName.touched">
+                <span *ngIf="senderName.errors?.['required']">El nombre del remitente es obligatorio</span>
+                <span *ngIf="senderName.errors?.['minlength']">El nombre debe tener al menos 2 caracteres</span>
+                <span *ngIf="senderName.errors?.['maxlength']">El nombre no puede exceder 100 caracteres</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Correo electrónico *</label>
+              <input
+                type="email"
+                [(ngModel)]="formData.sender_email"
+                name="senderEmail"
+                #senderEmail="ngModel"
+                required
+                email
+                class="form-input"
+                [class.error]="senderEmail.invalid && senderEmail.touched"
+                placeholder="correo@ejemplo.com"
+              >
+              <div class="error-message" *ngIf="senderEmail.invalid && senderEmail.touched">
+                <span *ngIf="senderEmail.errors?.['required']">El correo electrónico es obligatorio</span>
+                <span *ngIf="senderEmail.errors?.['email']">Ingresa un correo electrónico válido</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Teléfono *</label>
+              <input
+                type="tel"
+                [(ngModel)]="formData.sender_phone"
+                name="senderPhone"
+                #senderPhone="ngModel"
+                required
+                pattern="^[+]?[0-9\s\-()]{8,15}$"
+                class="form-input"
+                [class.error]="senderPhone.invalid && senderPhone.touched"
+                placeholder="+56 9 1234 5678"
+              >
+              <div class="error-message" *ngIf="senderPhone.invalid && senderPhone.touched">
+                <span *ngIf="senderPhone.errors?.['required']">El teléfono es obligatorio</span>
+                <span *ngIf="senderPhone.errors?.['pattern']">Ingresa un número de teléfono válido</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dirección completa *</label>
+            <textarea
+              [(ngModel)]="formData.sender_address"
+              name="senderAddress"
+              #senderAddress="ngModel"
+              required
+              minlength="10"
+              maxlength="500"
+              class="form-input"
+              [class.error]="senderAddress.invalid && senderAddress.touched"
+              rows="3"
+              placeholder="Dirección completa incluyendo comuna y ciudad"
+            ></textarea>
+            <div class="error-message" *ngIf="senderAddress.invalid && senderAddress.touched">
+              <span *ngIf="senderAddress.errors?.['required']">La dirección es obligatoria</span>
+              <span *ngIf="senderAddress.errors?.['minlength']">La dirección debe tener al menos 10 caracteres</span>
+              <span *ngIf="senderAddress.errors?.['maxlength']">La dirección no puede exceder 500 caracteres</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Información del Destinatario -->
+      <div class="form-section card">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+            </svg>
+            Información del Destinatario
+          </h3>
+        </div>
+        <div class="section-content">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nombre completo *</label>
+              <input
+                type="text"
+                [(ngModel)]="formData.recipient_name"
+                name="recipientName"
+                #recipientName="ngModel"
+                required
+                minlength="2"
+                maxlength="100"
+                class="form-input"
+                [class.error]="recipientName.invalid && recipientName.touched"
+                placeholder="Ingresa el nombre del destinatario"
+              >
+              <div class="error-message" *ngIf="recipientName.invalid && recipientName.touched">
+                <span *ngIf="recipientName.errors?.['required']">El nombre del destinatario es obligatorio</span>
+                <span *ngIf="recipientName.errors?.['minlength']">El nombre debe tener al menos 2 caracteres</span>
+                <span *ngIf="recipientName.errors?.['maxlength']">El nombre no puede exceder 100 caracteres</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Correo electrónico *</label>
+              <input
+                type="email"
+                [(ngModel)]="formData.recipient_email"
+                name="recipientEmail"
+                #recipientEmail="ngModel"
+                required
+                email
+                class="form-input"
+                [class.error]="recipientEmail.invalid && recipientEmail.touched"
+                placeholder="correo@ejemplo.com"
+              >
+              <div class="error-message" *ngIf="recipientEmail.invalid && recipientEmail.touched">
+                <span *ngIf="recipientEmail.errors?.['required']">El correo electrónico es obligatorio</span>
+                <span *ngIf="recipientEmail.errors?.['email']">Ingresa un correo electrónico válido</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Teléfono *</label>
+              <input
+                type="tel"
+                [(ngModel)]="formData.recipient_phone"
+                name="recipientPhone"
+                #recipientPhone="ngModel"
+                required
+                pattern="^[+]?[0-9\s\-()]{8,15}$"
+                class="form-input"
+                [class.error]="recipientPhone.invalid && recipientPhone.touched"
+                placeholder="+56 9 1234 5678"
+              >
+              <div class="error-message" *ngIf="recipientPhone.invalid && recipientPhone.touched">
+                <span *ngIf="recipientPhone.errors?.['required']">El teléfono es obligatorio</span>
+                <span *ngIf="recipientPhone.errors?.['pattern']">Ingresa un número de teléfono válido</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dirección completa *</label>
+            <textarea
+              [(ngModel)]="formData.recipient_address"
+              name="recipientAddress"
+              #recipientAddress="ngModel"
+              required
+              minlength="10"
+              maxlength="500"
+              class="form-input"
+              [class.error]="recipientAddress.invalid && recipientAddress.touched"
+              rows="3"
+              placeholder="Dirección completa incluyendo comuna y ciudad"
+            ></textarea>
+            <div class="error-message" *ngIf="recipientAddress.invalid && recipientAddress.touched">
+              <span *ngIf="recipientAddress.errors?.['required']">La dirección es obligatoria</span>
+              <span *ngIf="recipientAddress.errors?.['minlength']">La dirección debe tener al menos 10 caracteres</span>
+              <span *ngIf="recipientAddress.errors?.['maxlength']">La dirección no puede exceder 500 caracteres</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalles del Paquete -->
+      <div class="form-section card">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/>
+            </svg>
+            Detalles del Paquete
+          </h3>
+        </div>
+        <div class="section-content">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Peso (kg) *</label>
+              <input
+                type="number"
+                [(ngModel)]="formData.weight"
+                name="weight"
+                #weight="ngModel"
+                required
+                min="0.1"
+                max="1000"
+                step="0.1"
+                class="form-input"
+                [class.error]="weight.invalid && weight.touched"
+                placeholder="2.5"
+              >
+              <div class="error-message" *ngIf="weight.invalid && weight.touched">
+                <span *ngIf="weight.errors?.['required']">El peso es obligatorio</span>
+                <span *ngIf="weight.errors?.['min']">El peso mínimo es 0.1 kg</span>
+                <span *ngIf="weight.errors?.['max']">El peso máximo es 1000 kg</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cantidad de productos *</label>
+              <input
+                type="number"
+                [(ngModel)]="formData.quantity"
+                name="quantity"
+                #quantity="ngModel"
+                required
+                min="1"
+                max="10000"
+                class="form-input"
+                [class.error]="quantity.invalid && quantity.touched"
+                placeholder="1"
+              >
+              <div class="error-message" *ngIf="quantity.invalid && quantity.touched">
+                <span *ngIf="quantity.errors?.['required']">La cantidad es obligatoria</span>
+                <span *ngIf="quantity.errors?.['min']">La cantidad mínima es 1</span>
+                <span *ngIf="quantity.errors?.['max']">La cantidad máxima es 10,000</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Dimensiones *</label>
+              <input
+                type="text"
+                [(ngModel)]="formData.dimensions"
+                name="dimensions"
+                #dimensions="ngModel"
+                required
+                pattern="^[0-9]+x[0-9]+x[0-9]+\s*(cm|mm|m)$"
+                class="form-input"
+                [class.error]="dimensions.invalid && dimensions.touched"
+                placeholder="30x20x15 cm"
+              >
+              <div class="error-message" *ngIf="dimensions.invalid && dimensions.touched">
+                <span *ngIf="dimensions.errors?.['required']">Las dimensiones son obligatorias</span>
+                <span *ngIf="dimensions.errors?.['pattern']">Formato: 30x20x15 cm (o mm, m)</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descripción del contenido *</label>
+            <textarea
+              [(ngModel)]="formData.description"
+              name="description"
+              #description="ngModel"
+              required
+              minlength="5"
+              maxlength="500"
+              class="form-input"
+              [class.error]="description.invalid && description.touched"
+              rows="3"
+              placeholder="Describe brevemente el contenido del paquete"
+            ></textarea>
+            <div class="error-message" *ngIf="description.invalid && description.touched">
+              <span *ngIf="description.errors?.['required']">La descripción es obligatoria</span>
+              <span *ngIf="description.errors?.['minlength']">La descripción debe tener al menos 5 caracteres</span>
+              <span *ngIf="description.errors?.['maxlength']">La descripción no puede exceder 500 caracteres</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Fecha de entrega estimada *</label>
+              <input
+                type="date"
+                [(ngModel)]="formData.estimated_delivery"
+                name="estimatedDelivery"
+                #estimatedDelivery="ngModel"
+                required
+                class="form-input"
+                [class.error]="estimatedDelivery.invalid && estimatedDelivery.touched"
+                [min]="tomorrow"
+              >
+              <div class="error-message" *ngIf="estimatedDelivery.invalid && estimatedDelivery.touched">
+                <span *ngIf="estimatedDelivery.errors?.['required']">La fecha de entrega es obligatoria</span>
+              </div>
+            </div>
+            <div class="form-group" *ngIf="isEditMode">
+              <label class="form-label">Estado del paquete</label>
+              <select
+                [(ngModel)]="formData.status"
+                name="status"
+                class="form-input"
+              >
+                <option value="pending">Pendiente</option>
+                <option value="in_transit">En Tránsito</option>
+                <option value="delivered">Entregado</option>
+                <option value="returned">Devuelto</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notas adicionales</label>
+            <textarea
+              [(ngModel)]="formData.notes"
+              name="notes"
+              #notes="ngModel"
+              maxlength="1000"
+              class="form-input"
+              [class.error]="notes.invalid && notes.touched"
+              rows="2"
+              placeholder="Instrucciones especiales, notas de manejo, etc."
+            ></textarea>
+            <div class="error-message" *ngIf="notes.invalid && notes.touched">
+              <span *ngIf="notes.errors?.['maxlength']">Las notas no pueden exceder 1000 caracteres</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-outline" (click)="goBack()">
+        Cancelar
+      </button>
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        [disabled]="!isFormValid(packageForm) || isSubmitting"
+      >
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" *ngIf="isSubmitting">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
+        </svg>
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" *ngIf="!isSubmitting">
+          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+        </svg>
+        {{ isSubmitting ? 'Guardando...' : (isEditMode ? 'Actualizar Paquete' : 'Crear Paquete') }}
+      </button>
+    </div>
+  </form>
+</div>

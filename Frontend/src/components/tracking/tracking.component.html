@@ -1,0 +1,151 @@
+<div class="tracking-page">
+    <div class="tracking-header">
+    <h2 class="tracking-title">Rastrear Paquete</h2>
+    <p class="tracking-subtitle">Ingresa el número de seguimiento para ver el estado de tu envío</p>
+    </div>
+
+    <div class="tracking-search card">
+    <div class="search-form">
+        <div class="search-input-group">
+        <div class="search-input">
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 13.5 15.5l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <input
+            type="text"
+            [(ngModel)]="trackingNumber"
+            (keyup.enter)="searchPackage()"
+            placeholder="Ingresa el número de seguimiento (ej: PKG001234)"
+            class="form-input"
+            >
+        </div>
+        <button class="btn btn-primary" (click)="searchPackage()" [disabled]="!trackingNumber.trim()">
+            Rastrear
+        </button>
+        </div>
+    </div>
+    </div>
+
+    <div class="tracking-results" *ngIf="searchPerformed">
+    <div class="package-found card" *ngIf="foundPackage; else packageNotFound">
+        <div class="package-header">
+        <div class="tracking-info">
+            <h3 class="tracking-number">{{ foundPackage.tracking_number }}</h3>
+            <span [class]="'status-badge status-' + foundPackage.status">
+            {{ getStatusText(foundPackage.status) }}
+            </span>
+        </div>
+        <div class="package-dates">
+            <div class="date-item">
+            <span class="date-label">Creado:</span>
+            <span class="date-value">{{ formatDate(foundPackage.created_at) }}</span>
+            </div>
+            <div class="date-item">
+            <span class="date-label">Entrega estimada:</span>
+            <span class="date-value">{{ formatDate(foundPackage.estimated_delivery) }}</span>
+            </div>
+        </div>
+        </div>
+
+        <div class="tracking-timeline">
+        <h4 class="timeline-title">Estado del Envío</h4>
+        <div class="timeline">
+            <div class="timeline-item" [class.active]="isStatusActive('pending')" [class.completed]="isStatusCompleted('pending')">
+            <div class="timeline-marker">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                </svg>
+            </div>
+            <div class="timeline-content">
+                <h5>Paquete Registrado</h5>
+                <p>El paquete ha sido registrado en el sistema</p>
+            </div>
+            </div>
+
+            <div class="timeline-item" [class.active]="isStatusActive('in_transit')" [class.completed]="isStatusCompleted('in_transit')">
+            <div class="timeline-marker">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z"/>
+                </svg>
+            </div>
+            <div class="timeline-content">
+                <h5>En Tránsito</h5>
+                <p>El paquete está en camino hacia su destino</p>
+            </div>
+            </div>
+
+            <div class="timeline-item" [class.active]="isStatusActive('delivered')" [class.completed]="isStatusCompleted('delivered')">
+            <div class="timeline-marker">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                </svg>
+            </div>
+            <div class="timeline-content">
+                <h5>Entregado</h5>
+                <p>El paquete ha sido entregado exitosamente</p>
+                <small *ngIf="foundPackage.actual_delivery">{{ formatDate(foundPackage.actual_delivery) }}</small>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <div class="package-details">
+        <div class="details-grid">
+            <div class="detail-section">
+            <h4>Información del Remitente</h4>
+            <div class="detail-content">
+                <p><strong>{{ foundPackage.sender_name }}</strong></p>
+                <p>{{ foundPackage.sender_email }}</p>
+                <p>{{ foundPackage.sender_phone }}</p>
+                <p>{{ foundPackage.sender_address }}</p>
+            </div>
+            </div>
+            <div class="detail-section">
+            <h4>Información del Destinatario</h4>
+            <div class="detail-content">
+                <p><strong>{{ foundPackage.recipient_name }}</strong></p>
+                <p>{{ foundPackage.recipient_email }}</p>
+                <p>{{ foundPackage.recipient_phone }}</p>
+                <p>{{ foundPackage.recipient_address }}</p>
+            </div>
+            </div>
+        </div>
+        <div class="package-specs">
+            <div class="spec-item">
+            <span class="spec-label">Descripción:</span>
+            <span class="spec-value">{{ foundPackage.description }}</span>
+            </div>
+            <div class="spec-item">
+            <span class="spec-label">Peso:</span>
+            <span class="spec-value">{{ foundPackage.weight }} kg</span>
+            </div>
+            <div class="spec-item">
+            <span class="spec-label">Cantidad:</span>
+            <span class="spec-value">{{ foundPackage.quantity }} {{ foundPackage.quantity === 1 ? 'producto' : 'productos' }}</span>
+            </div>
+            <div class="spec-item">
+            <span class="spec-label">Dimensiones:</span>
+            <span class="spec-value">{{ foundPackage.dimensions }}</span>
+            </div>
+            <div class="spec-item" *ngIf="foundPackage.notes">
+            <span class="spec-label">Notas:</span>
+            <span class="spec-value">{{ foundPackage.notes }}</span>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <ng-template #packageNotFound>
+        <div class="package-not-found card">
+        <div class="not-found-icon">
+            <svg width="64" height="64" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+            </svg>
+        </div>
+        <h3>Paquete no encontrado</h3>
+        <p>No se encontró ningún paquete con el número de seguimiento <strong>"{{ trackingNumber }}"</strong></p>
+        <p>Verifica que el número esté correcto e intenta nuevamente.</p>
+        </div>
+    </ng-template>
+    </div>
+</div>
