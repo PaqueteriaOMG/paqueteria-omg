@@ -145,6 +145,12 @@ export class PaquetesController {
     }
   }
 
+  private generatePublicCode(): string {
+    const random = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const ts = Date.now().toString(36).toUpperCase().slice(-4);
+    return `TRK-${ts}-${random.slice(0, 6)}`;
+  }
+
   async create(req: any, res: Response) {
     try {
       const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
@@ -163,7 +169,7 @@ export class PaquetesController {
       }
 
       // Generar número de seguimiento único
-      let numero_seguimiento;
+      let numero_seguimiento: string | undefined;
       let isUnique = false;
       let attempts = 0;
       
@@ -177,19 +183,37 @@ export class PaquetesController {
         attempts++;
       }
 
-      if (!isUnique) {
+      if (!isUnique || !numero_seguimiento) {
         res.status(500).json({
           error: 'Error al generar número de seguimiento único'
         });
         return;
       }
 
+      // Generar código público único
+      let public_code: string | undefined;
+      let isPublicUnique = false;
+      let publicAttempts = 0;
+      while (!isPublicUnique && publicAttempts < 10) {
+        public_code = this.generatePublicCode();
+        const [existingPublic] = await this.db.execute(
+          'SELECT paqu_id AS id FROM Paquetes WHERE paqu_codigo_rastreo_publico = ?',
+          [public_code]
+        );
+        isPublicUnique = (existingPublic as any[]).length === 0;
+        publicAttempts++;
+      }
+      if (!isPublicUnique || !public_code) {
+        res.status(500).json({ error: 'Error al generar código de rastreo público' });
+        return;
+      }
+
       const [result] = await this.db.execute(`
         INSERT INTO Paquetes (
-          paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones, 
+          paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_codigo_rastreo_publico, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones, 
           paqu_valor_declarado, paqu_direccion_origen, paqu_direccion_destino, paqu_estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
-      `, [numero_seguimiento, numero_seguimiento, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
+      `, [numero_seguimiento, numero_seguimiento, public_code, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]);
 
       const insertId = (result as any).insertId;
       
@@ -234,7 +258,7 @@ export class PaquetesController {
       const paquete = (existingPaquete as any[])[0];
       
       // No permitir actualizar paquetes entregados
-      if (paquete.estado === 'entregado') {
+      if (paquete.paqu_estado === 'entregado') {
         res.status(400).json({
           error: 'No se puede actualizar un paquete entregado'
         });
@@ -281,7 +305,7 @@ export class PaquetesController {
       }
 
       const paquete = (existingPaquete as any[])[0];
-      const estadoAnterior = paquete.estado as string;
+      const estadoAnterior = paquete.paqu_estado as string;
 
       // Validación de máquina de estados
       const allowedTransitions: Record<string, string[]> = {
@@ -364,12 +388,29 @@ export class PaquetesController {
           throw new Error('No fue posible generar un número de seguimiento único');
         }
 
+        // Generar código público único
+        let public_code: string | undefined;
+        let isPublicUnique = false;
+        let publicAttempts = 0;
+        while (!isPublicUnique && publicAttempts < 10) {
+          public_code = this.generatePublicCode();
+          const [existingPublic] = await conn.execute(
+            'SELECT paqu_id AS id FROM Paquetes WHERE paqu_codigo_rastreo_publico = ?',
+            [public_code]
+          );
+          isPublicUnique = (existingPublic as any[]).length === 0;
+          publicAttempts++;
+        }
+        if (!isPublicUnique || !public_code) {
+          throw new Error('No fue posible generar un código público único');
+        }
+
         const [result] = await conn.execute(
           `INSERT INTO Paquetes (
-            paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones,
+            paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_codigo_rastreo_publico, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones,
             paqu_valor_declarado, paqu_direccion_origen, paqu_direccion_destino, paqu_estado
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')`,
-          [numero_seguimiento, numero_seguimiento, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')`,
+          [numero_seguimiento, numero_seguimiento, public_code, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]
         );
 
         const insertId = (result as any).insertId as number;
@@ -405,13 +446,13 @@ export class PaquetesController {
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
   <rect x="5" y="5" width="390" height="240" rx="8" ry="8" fill="#fff" stroke="#111"/>
   <text x="20" y="35" font-family="Arial" font-size="18" font-weight="bold">Etiqueta de Envío</text>
-  <text x="20" y="65" font-family="Arial" font-size="14">Tracking: ${safe(pkg.numero_seguimiento)}</text>
+  <text x="20" y="65" font-family="Arial" font-size="14">Tracking: ${safe(pkg.paqu_numero_seguimiento)}</text>
   <text x="20" y="90" font-family="Arial" font-size="12">Cliente: ${safe(pkg.cliente_nombre ?? '')}</text>
-  <text x="20" y="110" font-family="Arial" font-size="12">Origen: ${safe(pkg.direccion_origen)}</text>
-  <text x="20" y="130" font-family="Arial" font-size="12">Destino: ${safe(pkg.direccion_destino)}</text>
-  <text x="20" y="160" font-family="Arial" font-size="12">Descripción: ${safe(pkg.descripcion)}</text>
-  <text x="20" y="180" font-family="Arial" font-size="12">Peso: ${safe(pkg.peso)} kg</text>
-  <text x="20" y="200" font-family="Arial" font-size="12">Estado: ${safe(pkg.estado)}</text>
+  <text x="20" y="110" font-family="Arial" font-size="12">Origen: ${safe(pkg.paqu_direccion_origen)}</text>
+  <text x="20" y="130" font-family="Arial" font-size="12">Destino: ${safe(pkg.paqu_direccion_destino)}</text>
+  <text x="20" y="160" font-family="Arial" font-size="12">Descripción: ${safe(pkg.paqu_descripcion)}</text>
+  <text x="20" y="180" font-family="Arial" font-size="12">Peso: ${safe(pkg.paqu_peso)} kg</text>
+  <text x="20" y="200" font-family="Arial" font-size="12">Estado: ${safe(pkg.paqu_estado)}</text>
 </svg>`;
   }
 
@@ -451,7 +492,7 @@ export class PaquetesController {
       }
   
       const [historial] = await this.db.execute(
-        'SELECT * FROM HistorialPaquetes WHERE paquete_id = ? ORDER BY fecha_cambio DESC',
+        'SELECT * FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
         [id]
       );
   
@@ -482,7 +523,7 @@ export class PaquetesController {
       const paquete = (existingPaquete as any[])[0];
       
       // No permitir eliminar paquetes en tránsito o entregados
-      if (paquete.estado === 'en_transito' || paquete.estado === 'entregado') {
+      if (paquete.paqu_estado === 'en_transito' || paquete.paqu_estado === 'entregado') {
         res.status(400).json({
           error: 'No se puede eliminar un paquete en tránsito o entregado'
         });
@@ -516,6 +557,65 @@ export class PaquetesController {
       res.status(500).json({
         error: 'Error interno del servidor'
       });
+    }
+  }
+
+  // Endpoint público: rastreo por código público
+  async getByPublicCode(req: any, res: Response) {
+    try {
+      const { code } = req.params;
+      const [rows] = await this.db.execute(
+        `SELECT 
+        p.paqu_id AS id,
+        p.paqu_codigo_rastreo_publico,
+        p.paqu_estado,
+        p.paqu_created_at,
+        p.paqu_updated_at,
+        (
+        SELECT e.envi_fecha_envio_estimada 
+        FROM Envios e 
+        WHERE e.envi_activo = 1 
+        AND (
+        e.envi_paquete_id = p.paqu_id 
+        OR EXISTS (
+        SELECT 1 FROM EnviosPaquetes ep 
+        WHERE ep.enpa_envio_id = e.envi_id AND ep.enpa_paquete_id = p.paqu_id
+        )
+        )
+        ORDER BY e.envi_updated_at DESC
+        LIMIT 1
+        ) AS eta
+        FROM Paquetes p 
+        WHERE p.paqu_codigo_rastreo_publico = ? AND p.paqu_activo = 1`,
+       [code]
+     );
+     const list = rows as any[];
+     if (list.length === 0) {
+       res.status(404).json({ error: 'Paquete no encontrado' });
+       return;
+     }
+      const pkg = list[0];
+      const [historial] = await this.db.execute(
+        'SELECT hipa_estado_nuevo, hipa_comentario, hipa_fecha_cambio FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
+        [pkg.id]
+      );
+      const events = (historial as any[]).map(h => ({
+        status: h.hipa_estado_nuevo,
+        comment: h.hipa_comentario,
+        date: h.hipa_fecha_cambio
+      }));
+
+      res.json({
+        code: pkg.paqu_codigo_rastreo_publico,
+        status: pkg.paqu_estado,
+        created_at: pkg.paqu_created_at,
+        updated_at: pkg.paqu_updated_at,
+        eta: pkg.eta ?? null,
+        history: events
+      });
+    } catch (error) {
+      console.error('Error en rastreo público:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 }

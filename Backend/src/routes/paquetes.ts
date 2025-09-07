@@ -6,7 +6,14 @@ import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
 const router = Router();
 
-// Aplicar autenticación a todas las rutas
+// Endpoint público de rastreo
+router.get('/public/track/:code', async (req: any, res: any) => {
+  const db = req.app.locals.db as Pool;
+  const paquetesController = new PaquetesController(db);
+  await paquetesController.getByPublicCode(req, res);
+});
+
+// Aplicar autenticación a todas las rutas restantes
 router.use(authenticateToken);
 
 // Validaciones
@@ -73,7 +80,7 @@ router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validat
   await paquetesController.create(req, res);
 });
 
-// Creación masiva de paquetes (bulk)
+// Creación masiva de paquetes
 router.post('/bulk', authorizeRoles('admin', 'empleado'), [
   body('items').isArray({ min: 1 }).withMessage('items debe ser un arreglo con al menos un elemento'),
   body('items.*.cliente_id').isInt({ min: 1 }).withMessage('cliente_id inválido'),

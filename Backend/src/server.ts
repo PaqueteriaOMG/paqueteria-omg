@@ -71,6 +71,16 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
+// Límite de solicitudes para el tracking público
+const publicTrackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiadas solicitudes de tracking público, intenta de nuevo más tarde' }
+});
+app.use('/api/paquetes/public/track', publicTrackLimiter);
+
 const metrics: {
   totalRequests: number;
   totalDurationMs: number;
@@ -81,10 +91,8 @@ const metrics: {
   perRoute: {}
 };
 
-// Rutas que deben mantener su respuesta original
 const skipEnvelopePaths = new Set<string>(['/api/health', '/api/readiness']);
 
-// Envoltura de res.json para estandarizar { success, data/error }
 app.use((req: Request, res: Response, next: NextFunction) => {
   const originalJson = res.json.bind(res);
   (res as any).originalJson = originalJson;
@@ -111,7 +119,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = process.hrtime.bigint();
   const method = req.method;
-  // Usamos originalUrl para mayor detalle
   const path = req.originalUrl.split('?')[0];
   res.on('finish', () => {
     const end = process.hrtime.bigint();
@@ -124,7 +131,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     metrics.perRoute[key].totalMs += durationMs;
     metrics.perRoute[key].lastMs = durationMs;
 
-    // Log estructurado (JSON)
+    // Log estructurado en JSON
     try {
       const log = {
         ts: new Date().toISOString(),
@@ -139,7 +146,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Endpoint de métricas básicas
+// Endpoint de métricas
 app.get('/api/metrics', (req: Request, res: Response) => {
   const avg = metrics.totalRequests ? metrics.totalDurationMs / metrics.totalRequests : 0;
   const perRoute = Object.fromEntries(
@@ -186,7 +193,7 @@ app.use('/api/envios', enviosRoutes);
 app.use('/api/paquetes', paquetesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 
-// Ruta de prueba
+// Ruta de testeo
 app.get('/api/health', async (req: Request, res: Response) => {
   res.locals.skipEnvelope = true;
   const corsInfo = {
@@ -217,7 +224,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
   });
 });
 
-// Readiness probe: retorna 200 si la BD responde, 503 en caso contrario
+// Readiness probe: retorna 200 si la BD responde, 503 si no
 app.get('/api/readiness', async (req: Request, res: Response) => {
   res.locals.skipEnvelope = true;
   try {
@@ -231,7 +238,6 @@ app.get('/api/readiness', async (req: Request, res: Response) => {
 
 // Middleware de manejo de errores
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  // eslint-disable-next-line no-console
   console.error(err.stack);
   res.status(500).json({ 
     success: false,
@@ -248,7 +254,6 @@ app.use('*', (req: Request, res: Response) => {
 // Iniciar servidor
 app.listen(PORT, async () => {
   try {
-    // Probar conexión a la base de datos
     await pool.getConnection();
     console.log('Conexión a la base de datos establecida');
   } catch (error: any) {
@@ -257,7 +262,7 @@ app.listen(PORT, async () => {
   console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
 });
 
-// Manejo de cierre graceful
+// Manejo de cierre
 process.on('SIGINT', async () => {
   console.log('\nCerrando servidor...');
   await pool.end();

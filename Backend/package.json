@@ -9,7 +9,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test": "node tests/test-login.js",
     "test:login": "node tests/test-login.js",
-    "test:e2e": "node tests/e2e-multipackage-test.js"
+    "test:e2e": "node tests/e2e-multipackage-test.js",
+    "test:public": "node tests/test-public-tracking.js"
   },
   "dependencies": {
     "axios": "^1.11.0",
