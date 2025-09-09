@@ -47,3 +47,46 @@
   .package-details { grid-template-columns: 1fr; }
   .package-dates { flex-direction: column; gap: var(--spacing-1); }
 }
+
+.package-list .toolbar {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+}
+
+.package-list .view-toggle {
+  display: flex;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-4);
+}
+
+.cards .card {
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-3);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header .actions button.secondary {
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+}
+
+.card-header .actions button.secondary:hover {
+  background: var(--primary-100);
+}
+
+.group-body .pkg-actions button.secondary {
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-200);
+}
+
+.group-body .pkg-actions button.secondary:hover {
+  background: var(--primary-100);
+}

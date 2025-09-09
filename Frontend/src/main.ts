@@ -11,30 +11,31 @@ import { TrackingComponent } from './components/tracking/tracking.component';
 import { ReportsComponent } from './components/reports/reports.component';
 import { SettingsComponent } from './components/settings/settings.component';
 
-// Componentes existentes
+// Componentes
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { PackageListComponent } from './components/package-list/package-list.component';
-import { PackageFormComponent } from './components/package-form/package-form.component';
 
-// Nuevos componentes de auth (standalone)
+import { PackageFormComponent } from './components/package-form/package-form.component';
 import { LoginComponent } from './components/auth/login.component';
 import { RegisterComponent } from './components/auth/register.component';
+
+// Componente público de rastreo
+import { PublicTrackingComponent } from './components/public-tracking/public-tracking.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: 'login', component: LoginComponent, canActivate: [canActivateGuest] },
   { path: 'register', component: RegisterComponent, canActivate: [canActivateGuest] },
   { path: 'dashboard', component: DashboardComponent, canActivate: [canActivateAuth] },
-  // Rutas nuevas y alias para compatibilidad
   { path: 'packages', component: PackageListComponent, canActivate: [canActivateAuth] },
   { path: 'new-package', component: PackageFormComponent, canActivate: [canActivateAuth] },
   { path: 'edit-package/:id', component: PackageFormComponent, canActivate: [canActivateAuth] },
   { path: 'tracking', component: TrackingComponent, canActivate: [canActivateAuth] },
   { path: 'reports', component: ReportsComponent, canActivate: [canActivateAuth] },
   { path: 'settings', component: SettingsComponent, canActivate: [canActivateAuth] },
-  // Rutas en español
-  { path: 'paquetes', component: PackageListComponent, canActivate: [canActivateAuth] },
-  { path: 'paquetes/nuevo', component: PackageFormComponent, canActivate: [canActivateAuth] },
+  // Rutas públicas
+  { path: 'track', component: PublicTrackingComponent },
+  { path: 'track/:code', component: PublicTrackingComponent },
   { path: '**', redirectTo: 'dashboard' }
 ];
 

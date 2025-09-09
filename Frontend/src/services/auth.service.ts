@@ -89,4 +89,25 @@ export class AuthService {
       })
     );
   }
+
+  // Forgot password: envía email para restablecer contraseña
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/forgot-password`, { email }, { withCredentials: true }).pipe(
+      map(res => ({ message: res.data.message || 'Si el correo existe, recibirás instrucciones' }))
+    );
+  }
+
+  // Reset password: usa token y nueva contraseña
+  resetPassword(token: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/reset-password`, { token, newPassword }, { withCredentials: true }).pipe(
+      map(res => ({ message: res.data.message || 'Contraseña actualizada correctamente' }))
+    );
+  }
+
+  // Verificar email: acepta token (POST para simplificar)
+  verifyEmail(token: string): Observable<{ message: string }> {
+    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/verify-email`, { token }, { withCredentials: true }).pipe(
+      map(res => ({ message: res.data.message || 'Correo verificado exitosamente' }))
+    );
+  }
 }

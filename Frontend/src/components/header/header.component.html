@@ -49,6 +49,7 @@
             <a class="nav-link" (click)="logout()">Cerrar sesión</a>
         </ng-container>
         <ng-template #guestLinks>
+            <a routerLink="/track" routerLinkActive="active" class="nav-link">Rastrear paquete</a>
             <a routerLink="/login" routerLinkActive="active" class="nav-link">Login</a>
             <a routerLink="/register" routerLinkActive="active" class="nav-link">Registro</a>
         </ng-template>

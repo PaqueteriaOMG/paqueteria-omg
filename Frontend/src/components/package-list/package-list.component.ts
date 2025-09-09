@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { PackageService } from '../../services/package.service';
 import { Package, PackageStatus } from '../../models/package.model';
 import { Observable, combineLatest, BehaviorSubject } from 'rxjs';
@@ -19,9 +20,9 @@ type GroupView = {
 @Component({
   selector: 'app-package-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: "package-list.component.html",
-  styleUrls: ["package-list.component.css"]
+  imports: [CommonModule, FormsModule, HttpClientModule],
+  templateUrl: 'package-list.component.html',
+  styleUrls: ['package-list.component.css']
 })
 export class PackageListComponent implements OnInit {
   packages$: Observable<Package[]>;
@@ -34,12 +35,19 @@ export class PackageListComponent implements OnInit {
 
   expandedGroups: Set<string> = new Set<string>();
 
+  // Exponer enum al template
+  PackageStatus = PackageStatus;
   private searchSubject = new BehaviorSubject<string>('');
   private statusSubject = new BehaviorSubject<string>('');
 
+  // NUEVO: feedback de copiado por paquete
+  copiedPublicLink = new Set<string>();
+  private apiBase = 'http://localhost:3000/api';
+
   constructor(
     private packageService: PackageService,
-    private router: Router
+    private router: Router,
+    private http: HttpClient
   ) {
     this.packages$ = this.packageService.getPackages();
 
@@ -62,7 +70,7 @@ export class PackageListComponent implements OnInit {
         }
 
         if (status) {
-          filtered = filtered.filter(p => String(p.status) === status || p.status === status as any);
+          filtered = filtered.filter(p => String(p.status) === status || (p.status as any) === status);
         }
 
         return filtered;
@@ -74,7 +82,13 @@ export class PackageListComponent implements OnInit {
     );
   }
 
-  ngOnInit() {}
+  ngOnInit(): void {}
+
+  // Utilidad para usar como clave en el Set de copiado desde el template
+  idKey(pkg: Package): string {
+    const id = (pkg as any)?.id ?? (pkg as any)?.tracking_number ?? '';
+    return String(id);
+  }
 
   setViewMode(mode: 'individual' | 'grouped') {
     this.viewMode = mode;
@@ -127,9 +141,9 @@ export class PackageListComponent implements OnInit {
     }
 
     return Array.from(mapGroups.values()).sort((a, b) =>
-      (a.dateISO.localeCompare(b.dateISO)) ||
-      (a.clientName.localeCompare(b.clientName)) ||
-      (a.address.localeCompare(b.address))
+      a.dateISO.localeCompare(b.dateISO) ||
+      a.clientName.localeCompare(b.clientName) ||
+      a.address.localeCompare(b.address)
     );
   }
 
@@ -160,10 +174,22 @@ export class PackageListComponent implements OnInit {
     this.router.navigate(['/edit-package', id]);
   }
 
+  // Helpers para evitar casts en el template
+  editPackageByPkg(pkg: Package) {
+    const id = (pkg as any)?.id;
+    if (id != null) this.editPackage(String(id));
+  }
+
   deletePackage(id: string) {
     if (confirm('¿Está seguro de que desea eliminar este paquete?')) {
       this.packageService.deletePackage(id).subscribe();
     }
+  }
+
+  deletePackageByPkg(pkg: Package) {
+    const id = (pkg as any)?.id;
+    if (id == null) return;
+    this.deletePackage(String(id));
   }
 
   getStatusText(status: PackageStatus): string {
@@ -174,6 +200,31 @@ export class PackageListComponent implements OnInit {
       [PackageStatus.RETURNED]: 'Devuelto'
     } as Record<string | number, string>;
     return statusMap[status as unknown as string] ?? String(status);
+  }
+
+  // NUEVO: construir y copiar enlace público
+  async copyPublicLink(pkg: Package) {
+    try {
+      const id = (pkg as any).id;
+      if (!id) {
+        alert('No se encontró el ID del paquete para obtener el enlace público');
+        return;
+      }
+      const resp = await this.http.get<any>(`${this.apiBase}/paquetes/${encodeURIComponent(String(id))}`).toPromise();
+      const code = resp?.paqu_codigo_rastreo_publico || resp?.codigo_rastreo_publico || resp?.public_code;
+      if (!code) {
+        alert('Este paquete aún no tiene un código público disponible.');
+        return;
+      }
+      const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : '';
+      const link = `${origin}/track/${encodeURIComponent(String(code))}`;
+      await navigator.clipboard.writeText(link);
+      this.copiedPublicLink.add(String(id));
+      setTimeout(() => this.copiedPublicLink.delete(String(id)), 1500);
+    } catch (e) {
+      console.error(e);
+      alert('No fue posible copiar el enlace público en este momento.');
+    }
   }
 
   formatDate(date?: string): string {
