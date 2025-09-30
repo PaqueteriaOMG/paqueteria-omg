@@ -18,20 +18,22 @@ export class ClientesController {
 
       let query = 'SELECT * FROM Clientes WHERE clie_activo = 1';
       let countQuery = 'SELECT COUNT(*) as total FROM Clientes WHERE clie_activo = 1';
-      const params: any[] = [];
+      const queryParams: any[] = [];
+      const countQueryParams: any[] = [];
 
       if (search) {
         query += ' AND (clie_nombre LIKE ? OR clie_email LIKE ? OR clie_telefono LIKE ?)';
         countQuery += ' AND (clie_nombre LIKE ? OR clie_email LIKE ? OR clie_telefono LIKE ?)';
         const searchParam = `%${search}%`;
-        params.push(searchParam, searchParam, searchParam);
+        queryParams.push(searchParam, searchParam, searchParam);
+        countQueryParams.push(searchParam, searchParam, searchParam);
       }
 
-      query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      params.push(limit, offset);
+      query += ' ORDER BY clie_created_at DESC LIMIT ? OFFSET ?';
+      queryParams.push(limit, offset);
 
-      const [rows] = await this.db.execute(query, params);
-      const [countRows] = await this.db.execute(countQuery, params.slice(0, -2));
+      const [rows] = await this.db.execute(query, queryParams);
+      const [countRows] = await this.db.execute(countQuery, countQueryParams);
       
       const total = (countRows as any[])[0].total;
       const totalPages = Math.ceil(total / limit);

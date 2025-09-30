@@ -18,7 +18,7 @@ export class UsuariosController {
       const rol = req.query.rol;
       const search = req.query.search || '';
 
-      let query = 'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, created_at, updated_at FROM Usuarios WHERE usua_activo = 1';
+      let query = 'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_activo = 1';
       let countQuery = 'SELECT COUNT(*) as total FROM Usuarios WHERE usua_activo = 1';
       const params: any[] = [];
 
@@ -35,7 +35,7 @@ export class UsuariosController {
         params.push(searchParam, searchParam);
       }
 
-      query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+      query += ' ORDER BY usua_created_at DESC LIMIT ? OFFSET ?';
       params.push(limit, offset);
 
       const [rows] = await this.db.execute(query, params);
@@ -75,7 +75,7 @@ export class UsuariosController {
       }
       
       const [rows] = await this.db.execute(
-        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, created_at, updated_at FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
         [id]
       );
       const usuarios = rows as Omit<Usuario, 'password'>[];
@@ -124,7 +124,7 @@ export class UsuariosController {
       const insertId = (result as any).insertId;
       
       const [newUser] = await this.db.execute(
-        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, created_at, updated_at FROM Usuarios WHERE usua_id = ?',
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ?',
         [insertId]
       );
 
@@ -191,7 +191,7 @@ export class UsuariosController {
       );
 
       const [updatedUser] = await this.db.execute(
-        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, created_at, updated_at FROM Usuarios WHERE usua_id = ?',
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ?',
         [id]
       );
 
@@ -347,7 +347,7 @@ export class UsuariosController {
       }
 
       const [rows] = await this.db.execute(
-        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, created_at, updated_at FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
         [currentUser.id]
       );
       const usuarios = rows as Omit<Usuario, 'password'>[];
@@ -420,7 +420,7 @@ export class UsuariosController {
       const [upd] = await this.db.execute(sql, params);
       // Confirmar que se actualizó
       const [rows] = await this.db.execute(
-        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at AS created_at, usua_updated_at AS updated_at FROM Usuarios WHERE usua_id = ?',
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ?',
         [currentUser.id]
       );
       const user = (rows as any[])[0];
@@ -460,6 +460,39 @@ export class UsuariosController {
       res.json((userRows as any[])[0]);
     } catch (error) {
       console.error('Error al restaurar usuario:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
+  async activate(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+  
+      // Verificar que el usuario existe y está inactivo
+      const [rows] = await this.db.execute(
+        'SELECT usua_id FROM Usuarios WHERE usua_id = ? AND usua_activo = 0',
+        [id]
+      );
+  
+      if ((rows as any[]).length === 0) {
+        res.status(404).json({ error: 'Usuario no encontrado o ya activo' });
+        return;
+      }
+  
+      // Activar usuario
+      await this.db.execute(
+        'UPDATE Usuarios SET usua_activo = 1, usua_updated_at = CURRENT_TIMESTAMP WHERE usua_id = ?',
+        [id]
+      );
+  
+      const [userRows] = await this.db.execute(
+        'SELECT usua_id AS id, usua_nombre AS nombre, usua_email AS email, usua_rol AS rol, usua_activo AS activo, usua_created_at, usua_updated_at FROM Usuarios WHERE usua_id = ?',
+        [id]
+      );
+
+      res.json((userRows as any[])[0]);
+    } catch (error) {
+      console.error('Error al activar usuario:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }

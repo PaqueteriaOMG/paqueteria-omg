@@ -118,4 +118,11 @@ INSERT INTO Usuarios (usua_nombre, usua_rol, usua_email, usua_password_hash, usu
 VALUES ('Admin', 'admin', 'admin@paqueteria.com', '$2a$10$xj9xKEuc0AcYL1nMfZr.Ve9b86hsxoBMhBTMlWoVVCQKqLS5c7uv.', 1)
 ON DUPLICATE KEY UPDATE usua_password_hash = VALUES(usua_password_hash), usua_activo = 1;
 
-SELECT * FROM Paquetes
+SELECT * FROM Usuarios;
+SELECT * FROM Paquetes;
+SELECT * FROM Envios;
+SELECT * FROM EnviosPaquetes;
+SELECT * FROM HistorialPaquetes;
+SELECT * FROM RefreshTokens;
+SELECT * FROM PasswordResetTokens;
+SELECT * FROM EmailVerificationTokens;

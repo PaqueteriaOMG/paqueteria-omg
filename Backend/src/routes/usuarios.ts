@@ -410,4 +410,36 @@ router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any)
   await usuariosController.restore(req, res);
 });
 
+// Activar usuario (solo admins)
+/**
+ * @swagger
+ * /api/usuarios/{id}/activate:
+ *   patch:
+ *     summary: Activar usuario desactivado
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Usuario activado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
+router.patch('/:id/activate', authorizeRoles('admin'), async (req: any, res: any) => {
+  const db: Pool = req.app.locals.db;
+  const usuariosController = new UsuariosController(db);
+  await usuariosController.activate(req, res);
+});
+
 export default router;
