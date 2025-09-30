@@ -1,4 +1,15 @@
-//joyina
+/**
+ * @swagger
+ * tags:
+ *   name: Autenticación
+ *   description: Endpoints para autenticación de usuarios
+ * 
+ * components:
+ *   schemas:
+ *     PasswordExample:
+ *       type: string
+ *       example: String123*
+ */
 import { Router } from "express";
 import { body, validationResult, query } from "express-validator";
 import { Pool } from "mysql2/promise";
@@ -59,6 +70,50 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
   next();
 };
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Iniciar sesión
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Login exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                     user:
+ *                       type: object
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: Credenciales incorrectas
+ */
 // Login
 router.post(
   "/login",
@@ -71,6 +126,43 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Registrar un nuevo usuario
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - email
+ *               - password
+ *               - rol
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               rol:
+ *                 type: string
+ *                 enum: [admin, empleado, cliente]
+ *     responses:
+ *       201:
+ *         description: Usuario registrado exitosamente
+ *       400:
+ *         description: Datos inválidos
+ *       409:
+ *         description: El email ya está registrado
+ */
 // Registro
 router.post(
   "/register",
@@ -83,6 +175,20 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /api/auth/check-access:
+ *   get:
+ *     summary: Verificar validez del token de acceso
+ *     tags: [Autenticación]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token válido
+ *       401:
+ *         description: Token inválido o expirado
+ */
 // Verificar token access (similar a check-access)
 router.get("/check-access", authenticateToken, (req, res) => {
   res.json({ success: true, data: { valid: true } });
@@ -188,3 +294,175 @@ router.post(
 );
 
 export default router;
+
+/**
+ * @swagger
+ * /api/auth/verify:
+ *   get:
+ *     summary: Verificar token de autenticación (compatibilidad hacia atrás)
+ *     tags: [Autenticación]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Token de autenticación
+ *     responses:
+ *       200:
+ *         description: Token válido
+ *       401:
+ *         description: Token inválido o expirado
+ */
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Cerrar sesión
+ *     tags: [Autenticación]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sesión cerrada exitosamente
+ *       401:
+ *         description: No autorizado
+ */
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refrescar token de acceso
+ *     tags: [Autenticación]
+ *     responses:
+ *       200:
+ *         description: Token refrescado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *       401:
+ *         description: Token de refresco inválido o expirado
+ */
+
+/**
+ * @swagger
+ * /api/auth/check:
+ *   get:
+ *     summary: Verificar validez del token de refresco
+ *     tags: [Autenticación]
+ *     responses:
+ *       200:
+ *         description: Token válido
+ *       401:
+ *         description: Token inválido o revocado
+ */
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Solicitar restablecimiento de contraseña
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Correo de restablecimiento enviado
+ *       400:
+ *         description: Email inválido
+ *       404:
+ *         description: Usuario no encontrado
+ */
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Restablecer contraseña
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 $ref: '#/components/schemas/PasswordExample'
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida exitosamente
+ *       400:
+ *         description: Token o contraseña inválidos
+ *       401:
+ *         description: Token expirado
+ */
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   get:
+ *     summary: Verificar email (mediante query parameter)
+ *     tags: [Autenticación]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Token de verificación
+ *     responses:
+ *       200:
+ *         description: Email verificado exitosamente
+ *       400:
+ *         description: Token inválido
+ *       401:
+ *         description: Token expirado
+ *   post:
+ *     summary: Verificar email (mediante body)
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email verificado exitosamente
+ *       400:
+ *         description: Token inválido
+ *       401:
+ *         description: Token expirado
+ */

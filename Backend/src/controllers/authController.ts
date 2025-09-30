@@ -160,7 +160,7 @@ export class AuthController {
 
       // Crear token de verificación de email y persistir
       const { tokenId, token } = createEmailVerificationToken(insertId);
-      await this.db.execute('INSERT INTO EmailVerificationTokens (token_id, user_id, used) VALUES (?, ?, 0)', [tokenId, insertId]);
+      await this.db.execute('INSERT INTO EmailVerificationTokens (evt_token_id, evt_user_id, evt_used) VALUES (?, ?, 0)', [tokenId, insertId]);
 
       // Nota: en producción se debe enviar el token por email. En desarrollo lo devolvemos para pruebas.
       const isProd = process.env.NODE_ENV === 'production';

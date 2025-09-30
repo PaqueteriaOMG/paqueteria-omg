@@ -7,6 +7,25 @@ import { authenticateToken, authorizeRoles } from '../middleware/auth';
 const router = Router();
 
 // Endpoint público de rastreo
+/**
+ * @swagger
+ * /api/paquetes/public/track/{code}:
+ *   get:
+ *     summary: Rastrear paquete públicamente por código
+ *     tags: [Paquetes]
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Código de rastreo público del paquete
+ *     responses:
+ *       200:
+ *         description: Información del paquete obtenida correctamente
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.get('/public/track/:code', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -53,6 +72,48 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
 };
 
 // Obtener todos los paquetes con paginación
+/**
+ * @swagger
+ * /api/paquetes:
+ *   get:
+ *     summary: Obtener lista de paquetes paginada
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Cantidad de elementos por página
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [numero_seguimiento, descripcion, peso, fecha_creacion, estado]
+ *         description: Campo por el cual ordenar
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Orden de clasificación
+ *     responses:
+ *       200:
+ *         description: Lista de paquetes obtenida correctamente
+ *       400:
+ *         description: Parámetros de paginación inválidos
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/', paginationValidation, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -60,6 +121,29 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
 });
 
 // Obtener paquete por ID
+/**
+ * @swagger
+ * /api/paquetes/{id}:
+ *   get:
+ *     summary: Obtener paquete por ID
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     responses:
+ *       200:
+ *         description: Paquete obtenido correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.get('/:id', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -67,6 +151,29 @@ router.get('/:id', async (req: any, res: any) => {
 });
 
 // Buscar paquete por número de seguimiento
+/**
+ * @swagger
+ * /api/paquetes/tracking/{numero}:
+ *   get:
+ *     summary: Buscar paquete por número de seguimiento
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: numero
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Número de seguimiento del paquete
+ *     responses:
+ *       200:
+ *         description: Paquete encontrado correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.get('/tracking/:numero', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -74,6 +181,49 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
 });
 
 // Crear nuevo paquete
+/**
+ * @swagger
+ * /api/paquetes:
+ *   post:
+ *     summary: Crear nuevo paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - descripcion
+ *               - peso
+ *               - dimensiones
+ *               - valor_declarado
+ *               - fragil
+ *             properties:
+ *               descripcion:
+ *                 type: string
+ *               peso:
+ *                 type: number
+ *                 minimum: 0.1
+ *               dimensiones:
+ *                 type: string
+ *               valor_declarado:
+ *                 type: number
+ *                 minimum: 0
+ *               fragil:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Paquete creado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -81,6 +231,63 @@ router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validat
 });
 
 // Creación masiva de paquetes
+/**
+ * @swagger
+ * /api/paquetes/bulk:
+ *   post:
+ *     summary: Crear múltiples paquetes
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - items
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - cliente_id
+ *                     - descripcion
+ *                     - peso
+ *                     - dimensiones
+ *                     - valor_declarado
+ *                     - direccion_origen
+ *                     - direccion_destino
+ *                   properties:
+ *                     cliente_id:
+ *                       type: integer
+ *                       minimum: 1
+ *                     descripcion:
+ *                       type: string
+ *                     peso:
+ *                       type: number
+ *                       minimum: 0.1
+ *                     dimensiones:
+ *                       type: string
+ *                     valor_declarado:
+ *                       type: number
+ *                       minimum: 0
+ *                     direccion_origen:
+ *                       type: string
+ *                     direccion_destino:
+ *                       type: string
+ *     responses:
+ *       201:
+ *         description: Paquetes creados correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.post('/bulk', authorizeRoles('admin', 'empleado'), [
   body('items').isArray({ min: 1 }).withMessage('items debe ser un arreglo con al menos un elemento'),
   body('items.*.cliente_id').isInt({ min: 1 }).withMessage('cliente_id inválido'),
@@ -97,6 +304,35 @@ router.post('/bulk', authorizeRoles('admin', 'empleado'), [
 });
 
 // Obtener etiqueta SVG del paquete
+/**
+ * @swagger
+ * /api/paquetes/{id}/etiqueta:
+ *   get:
+ *     summary: Obtener etiqueta SVG del paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     responses:
+ *       200:
+ *         description: Etiqueta SVG obtenida correctamente
+ *         content:
+ *           image/svg+xml:
+ *             schema:
+ *               type: string
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.get('/:id/etiqueta', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -104,6 +340,31 @@ router.get('/:id/etiqueta', authorizeRoles('admin', 'empleado'), async (req: any
 });
 
 // Historial del paquete
+/**
+ * @swagger
+ * /api/paquetes/{id}/historial:
+ *   get:
+ *     summary: Obtener historial del paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     responses:
+ *       200:
+ *         description: Historial obtenido correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -111,6 +372,58 @@ router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: an
 });
 
 // Actualizar paquete
+/**
+ * @swagger
+ * /api/paquetes/{id}:
+ *   put:
+ *     summary: Actualizar paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - descripcion
+ *               - peso
+ *               - dimensiones
+ *               - valor_declarado
+ *               - fragil
+ *             properties:
+ *               descripcion:
+ *                 type: string
+ *               peso:
+ *                 type: number
+ *                 minimum: 0.1
+ *               dimensiones:
+ *                 type: string
+ *               valor_declarado:
+ *                 type: number
+ *                 minimum: 0
+ *               fragil:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Paquete actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);
@@ -118,6 +431,45 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, valid
 });
 
 // Actualizar estado del paquete
+/**
+ * @swagger
+ * /api/paquetes/{id}/estado:
+ *   patch:
+ *     summary: Actualizar estado del paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - estado
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [pendiente, en_transito, entregado, devuelto]
+ *     responses:
+ *       200:
+ *         description: Estado del paquete actualizado correctamente
+ *       400:
+ *         description: Estado inválido
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
   body('estado').isIn(['pendiente', 'en_transito', 'entregado', 'devuelto']).withMessage('Estado inválido')
 ], async (req: any, res: any) => {
@@ -127,6 +479,31 @@ router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
 });
 
 // Eliminar paquete
+/**
+ * @swagger
+ * /api/paquetes/{id}:
+ *   delete:
+ *     summary: Eliminar paquete
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     responses:
+ *       200:
+ *         description: Paquete eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete no encontrado
+ */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const paquetesController = new PaquetesController(db);

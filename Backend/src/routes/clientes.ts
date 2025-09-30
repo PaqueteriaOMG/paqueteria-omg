@@ -4,6 +4,13 @@ import { Pool } from 'mysql2/promise';
 import { ClientesController } from '../controllers/clientesController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Clientes
+ *   description: Endpoints para gestión de clientes
+ */
+
 const router = Router();
 
 // Aplicar autenticación a todas las rutas
@@ -34,6 +41,20 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
 };
 
 // Obtener todos los clientes con paginación
+/**
+ * @swagger
+ * /api/clientes:
+ *   get:
+ *     summary: Obtener todos los clientes
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de clientes obtenida correctamente
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -41,6 +62,29 @@ router.get('/', async (req: any, res: any) => {
 });
 
 // Obtener cliente por ID
+/**
+ * @swagger
+ * /api/clientes/{id}:
+ *   get:
+ *     summary: Obtener cliente por ID
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del cliente
+ *     responses:
+ *       200:
+ *         description: Cliente obtenido correctamente
+ *       404:
+ *         description: Cliente no encontrado
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/:id', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -48,6 +92,54 @@ router.get('/:id', async (req: any, res: any) => {
 });
 
 // Crear nuevo cliente
+/**
+ * @swagger
+ * /api/clientes:
+ *   post:
+ *     summary: Crear un nuevo cliente
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - apellido
+ *               - email
+ *               - telefono
+ *               - direccion
+ *               - ciudad
+ *               - codigo_postal
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               apellido:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               telefono:
+ *                 type: string
+ *               direccion:
+ *                 type: string
+ *               ciudad:
+ *                 type: string
+ *               codigo_postal:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Cliente creado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.post('/', authorizeRoles('admin', 'empleado'), clienteValidation, validateAndPassToController, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -55,6 +147,39 @@ router.post('/', authorizeRoles('admin', 'empleado'), clienteValidation, validat
 });
 
 // Actualizar cliente
+/**
+ * @swagger
+ * /api/clientes/{id}:
+ *   put:
+ *     summary: Actualizar un cliente
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del cliente
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Cliente'
+ *     responses:
+ *       200:
+ *         description: Cliente actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Cliente no encontrado
+ */
 router.put('/:id', authorizeRoles('admin', 'empleado'), clienteValidation, validateAndPassToController, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -62,6 +187,31 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), clienteValidation, valid
 });
 
 // Eliminar cliente (soft delete)
+/**
+ * @swagger
+ * /api/clientes/{id}:
+ *   delete:
+ *     summary: Eliminar un cliente (soft delete)
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del cliente
+ *     responses:
+ *       200:
+ *         description: Cliente eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Cliente no encontrado
+ */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -69,6 +219,31 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
 });
 
 // Restaurar cliente (soft-deleted)
+/**
+ * @swagger
+ * /api/clientes/{id}/restore:
+ *   patch:
+ *     summary: Restaurar un cliente eliminado
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del cliente
+ *     responses:
+ *       200:
+ *         description: Cliente restaurado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Cliente no encontrado
+ */
 router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);
@@ -76,6 +251,27 @@ router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any)
 });
 
 // Buscar clientes
+/**
+ * @swagger
+ * /api/clientes/search/{term}:
+ *   get:
+ *     summary: Buscar clientes por término
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: term
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Término de búsqueda
+ *     responses:
+ *       200:
+ *         description: Lista de clientes encontrados
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/search/:term', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const clientesController = new ClientesController(db);

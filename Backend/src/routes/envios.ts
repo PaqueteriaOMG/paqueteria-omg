@@ -4,6 +4,13 @@ import { Pool } from 'mysql2/promise';
 import { EnviosController } from '../controllers/enviosController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
+/**
+ * @swagger
+ * tags:
+ *   name: Envios
+ *   description: Endpoints para gestión de envíos
+ */
+
 const router = Router();
 
 // Aplicar autenticación a todas las rutas
@@ -45,6 +52,46 @@ const generateShipmentNumber = (): string => {
 };
 
 // Obtener todos los envíos con paginación
+/**
+ * @swagger
+ * /api/envios:
+ *   get:
+ *     summary: Obtener todos los envíos
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Límite de resultados por página
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [numero_envio, fecha_envio_estimada, estado]
+ *         description: Campo para ordenar
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Orden de clasificación
+ *     responses:
+ *       200:
+ *         description: Lista de envíos obtenida correctamente
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/', paginationValidation, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -52,6 +99,29 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
 });
 
 // Obtener envío por ID
+/**
+ * @swagger
+ * /api/envios/{id}:
+ *   get:
+ *     summary: Obtener envío por ID
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     responses:
+ *       200:
+ *         description: Envío obtenido correctamente
+ *       401:
+ *         description: No autorizado
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.get('/:id', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -59,6 +129,27 @@ router.get('/:id', async (req: any, res: any) => {
 });
 
 // Rastrear envío por número
+/**
+ * @swagger
+ * /api/envios/tracking/{numero}:
+ *   get:
+ *     summary: Rastrear envío por número
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: numero
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Número de rastreo del envío
+ *     responses:
+ *       200:
+ *         description: Información de rastreo obtenida correctamente
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.get('/tracking/:numero', async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -66,6 +157,44 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
 });
 
 // Crear nuevo envío
+/**
+ * @swagger
+ * /api/envios:
+ *   post:
+ *     summary: Crear nuevo envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paquete_id
+ *               - direccion_origen
+ *               - direccion_destino
+ *             properties:
+ *               paquete_id:
+ *                 type: integer
+ *               direccion_origen:
+ *                 type: string
+ *               direccion_destino:
+ *                 type: string
+ *               fecha_envio_estimada:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Envío creado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.post('/', authorizeRoles('admin', 'empleado'), envioValidation, validateAndPassToController, async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -73,6 +202,49 @@ router.post('/', authorizeRoles('admin', 'empleado'), envioValidation, validateA
 });
 
 // Actualización general del envío
+/**
+ * @swagger
+ * /api/envios/{id}:
+ *   put:
+ *     summary: Actualizar envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               direccion_origen:
+ *                 type: string
+ *               direccion_destino:
+ *                 type: string
+ *               fecha_envio_estimada:
+ *                 type: string
+ *                 format: date-time
+ *               paquete_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Envío actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.put('/:id', authorizeRoles('admin', 'empleado'), [
   body('direccion_origen').optional().notEmpty().withMessage('direccion_origen inválida'),
   body('direccion_destino').optional().notEmpty().withMessage('direccion_destino inválida'),
@@ -85,6 +257,48 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), [
 });
 
 // Actualizar estado del envío
+/**
+ * @swagger
+ * /api/envios/{id}/estado:
+ *   patch:
+ *     summary: Actualizar estado del envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - estado
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [pendiente, en_transito, entregado, devuelto, cancelado]
+ *               fecha_entrega_real:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Estado del envío actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
   body('estado').isIn(['pendiente', 'en_transito', 'entregado', 'devuelto', 'cancelado']).withMessage('Estado inválido'),
   body('fecha_entrega_real').optional().isISO8601().withMessage('Fecha de entrega real inválida')
@@ -95,6 +309,31 @@ router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
 });
 
 // Eliminar envío
+/**
+ * @swagger
+ * /api/envios/{id}:
+ *   delete:
+ *     summary: Eliminar envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     responses:
+ *       200:
+ *         description: Envío eliminado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -103,6 +342,31 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
 
 // Gestión de paquetes asociados al envío
 // Listar paquetes del envío
+/**
+ * @swagger
+ * /api/envios/{id}/paquetes:
+ *   get:
+ *     summary: Listar paquetes del envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     responses:
+ *       200:
+ *         description: Lista de paquetes obtenida correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.get('/:id/paquetes', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
   const db = req.app.locals.db as Pool;
   const enviosController = new EnviosController(db);
@@ -110,6 +374,47 @@ router.get('/:id/paquetes', authorizeRoles('admin', 'empleado'), async (req: any
 });
 
 // Agregar paquetes al envío
+/**
+ * @swagger
+ * /api/envios/{id}/paquetes:
+ *   post:
+ *     summary: Agregar paquetes al envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paquetes
+ *             properties:
+ *               paquetes:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 minItems: 1
+ *     responses:
+ *       200:
+ *         description: Paquetes agregados correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío no encontrado
+ */
 router.post('/:id/paquetes', authorizeRoles('admin', 'empleado'), [
   body('paquetes').isArray({ min: 1 }).withMessage('Debe enviar un arreglo "paquetes" con al menos 1 ID'),
   body('paquetes.*').isInt({ min: 1 }).withMessage('Cada paquete debe ser un ID válido')
@@ -120,6 +425,39 @@ router.post('/:id/paquetes', authorizeRoles('admin', 'empleado'), [
 });
 
 // Remover un paquete del envío
+/**
+ * @swagger
+ * /api/envios/{id}/paquetes/{paqueteId}:
+ *   delete:
+ *     summary: Remover un paquete del envío
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío
+ *       - in: path
+ *         name: paqueteId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete
+ *     responses:
+ *       200:
+ *         description: Paquete removido correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío o paquete no encontrado
+ */
 router.delete('/:id/paquetes/:paqueteId', authorizeRoles('admin', 'empleado'), [
   param('id').isInt({ min: 1 }).withMessage('Envío inválido'),
   param('paqueteId').isInt({ min: 1 }).withMessage('Paquete inválido')

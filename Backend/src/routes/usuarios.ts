@@ -46,6 +46,50 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
 };
 
 // Obtener todos los usuarios con paginación (solo admins)
+/**
+ * @swagger
+ * /api/usuarios:
+ *   get:
+ *     summary: Obtener lista de usuarios paginada
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Cantidad de elementos por página
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [nombre, email, rol, fecha_creacion]
+ *         description: Campo por el cual ordenar
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Orden de clasificación
+ *     responses:
+ *       200:
+ *         description: Lista de usuarios obtenida correctamente
+ *       400:
+ *         description: Parámetros de paginación inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.get('/', authorizeRoles('admin'), paginationValidation, async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -53,6 +97,32 @@ router.get('/', authorizeRoles('admin'), paginationValidation, async (req: any, 
 });
 
 // Obtener usuario por ID (admins pueden ver cualquier usuario, otros solo su propio perfil)
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   get:
+ *     summary: Obtener usuario por ID
+ *     description: Los administradores pueden ver cualquier usuario, otros usuarios solo pueden ver su propio perfil
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Usuario obtenido correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.get('/:id', async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -60,6 +130,47 @@ router.get('/:id', async (req: any, res: any) => {
 });
 
 // Crear nuevo usuario (solo admins)
+/**
+ * @swagger
+ * /api/usuarios:
+ *   post:
+ *     summary: Crear nuevo usuario
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - email
+ *               - password
+ *               - rol
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               rol:
+ *                 type: string
+ *                 enum: [admin, empleado, cliente]
+ *     responses:
+ *       201:
+ *         description: Usuario creado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
 router.post('/', authorizeRoles('admin'), usuarioCreateValidation, validateAndPassToController, async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -67,6 +178,55 @@ router.post('/', authorizeRoles('admin'), usuarioCreateValidation, validateAndPa
 });
 
 // Actualizar usuario
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   put:
+ *     summary: Actualizar usuario
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - email
+ *               - rol
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               rol:
+ *                 type: string
+ *                 enum: [admin, empleado, cliente]
+ *     responses:
+ *       200:
+ *         description: Usuario actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.put('/:id', usuarioValidation, validateAndPassToController, async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -74,6 +234,48 @@ router.put('/:id', usuarioValidation, validateAndPassToController, async (req: a
 });
 
 // Cambiar contraseña
+/**
+ * @swagger
+ * /api/usuarios/{id}/password:
+ *   patch:
+ *     summary: Cambiar contraseña de usuario
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - current_password
+ *               - new_password
+ *             properties:
+ *               current_password:
+ *                 type: string
+ *               new_password:
+ *                 type: string
+ *                 description: Debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas, números y un carácter especial
+ *     responses:
+ *       200:
+ *         description: Contraseña actualizada correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.patch('/:id/password', [
   body('current_password').notEmpty().withMessage('La contraseña actual es requerida'),
   body('new_password')
@@ -86,6 +288,31 @@ router.patch('/:id/password', [
 });
 
 // Desactivar usuario (soft delete) - solo admins
+/**
+ * @swagger
+ * /api/usuarios/{id}:
+ *   delete:
+ *     summary: Desactivar usuario (soft delete)
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Usuario desactivado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -93,6 +320,20 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
 });
 
 // Obtener perfil del usuario actual
+/**
+ * @swagger
+ * /api/usuarios/me/profile:
+ *   get:
+ *     summary: Obtener perfil del usuario actual
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Perfil obtenido correctamente
+ *       401:
+ *         description: No autorizado
+ */
 router.get('/me/profile', async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);
@@ -100,6 +341,34 @@ router.get('/me/profile', async (req: any, res: any) => {
 });
 
 // Editar perfil del usuario actual
+/**
+ * @swagger
+ * /api/usuarios/me/profile:
+ *   patch:
+ *     summary: Editar perfil del usuario actual
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Perfil actualizado correctamente
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ */
 router.patch('/me/profile', [
   body('nombre').optional().isString().notEmpty().withMessage('Nombre inválido'),
   body('email').optional().isEmail().withMessage('Email inválido')
@@ -110,6 +379,31 @@ router.patch('/me/profile', [
 });
 
 // Restaurar usuario (solo admins)
+/**
+ * @swagger
+ * /api/usuarios/{id}/restore:
+ *   patch:
+ *     summary: Restaurar usuario desactivado
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del usuario
+ *     responses:
+ *       200:
+ *         description: Usuario restaurado correctamente
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
   const db: Pool = req.app.locals.db;
   const usuariosController = new UsuariosController(db);

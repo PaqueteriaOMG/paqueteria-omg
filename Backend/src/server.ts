@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { setupSwagger } from './utils/swagger';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -40,17 +41,23 @@ if (isProd) {
 }
 
 // Middlewares
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:65140')
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
+
+// Configurar CORS antes de otras middlewares
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Permitir solicitudes sin origen (como las de Swagger UI o Postman)
+    if (!origin) {
+      return callback(null, true);
     }
+    // Permitir localhost para desarrollo
+    if (origin.startsWith('http://localhost:') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -180,6 +187,9 @@ app.locals.db = pool;
 
 
 
+// Configurar Swagger
+setupSwagger(app);
+
 // Rutas
 import authRoutes from './routes/auth';
 import clientesRoutes from './routes/clientes';
@@ -251,6 +261,9 @@ app.use('*', (req: Request, res: Response) => {
   res.status(404).json({ success: false, error: 'Ruta no encontrada' });
 });
 
+// Configurar Swagger
+setupSwagger(app);
+
 // Iniciar servidor
 app.listen(PORT, async () => {
   try {
@@ -260,6 +273,7 @@ app.listen(PORT, async () => {
     console.warn('No se pudo establecer conexión inicial con la base de datos:', error?.message);
   }
   console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+  console.log(`Documentación de la API disponible en http://localhost:${PORT}/api-docs`);
 });
 
 // Manejo de cierre

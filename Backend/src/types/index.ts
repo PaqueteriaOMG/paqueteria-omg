@@ -1,5 +1,32 @@
 import { Request } from 'express';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Usuario:
+ *       type: object
+ *       properties:
+ *         usua_id:
+ *           type: integer
+ *         usua_nombre:
+ *           type: string
+ *         usua_email:
+ *           type: string
+ *           format: email
+ *         usua_password_hash:
+ *           type: string
+ *         usua_rol:
+ *           type: string
+ *           enum: [admin, chofer, operador]
+ *         usua_activo:
+ *           type: boolean
+ *       required:
+ *         - usua_nombre
+ *         - usua_email
+ *         - usua_password_hash
+ *         - usua_rol
+ */
 export interface Usuario {
   usua_id?: number;
   usua_nombre: string;
@@ -9,6 +36,36 @@ export interface Usuario {
   usua_activo?: boolean;
 }
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Cliente:
+ *       type: object
+ *       properties:
+ *         clie_id:
+ *           type: integer
+ *         clie_nombre:
+ *           type: string
+ *         clie_email:
+ *           type: string
+ *           format: email
+ *         clie_telefono:
+ *           type: string
+ *         clie_direccion:
+ *           type: string
+ *         clie_tipo_cliente:
+ *           type: string
+ *           enum: [remitente, destinatario, ambos]
+ *         activo:
+ *           type: boolean
+ *       required:
+ *         - clie_nombre
+ *         - clie_email
+ *         - clie_telefono
+ *         - clie_direccion
+ *         - clie_tipo_cliente
+ */
 export interface Cliente {
   clie_id?: number;
   clie_nombre: string;
@@ -19,6 +76,43 @@ export interface Cliente {
   activo?: boolean;
 }
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Paquete:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         numero_seguimiento:
+ *           type: string
+ *         descripcion:
+ *           type: string
+ *         peso:
+ *           type: number
+ *           format: float
+ *         dimensiones:
+ *           type: string
+ *         valor_declarado:
+ *           type: number
+ *           format: float
+ *         fragil:
+ *           type: boolean
+ *         fecha_creacion:
+ *           type: string
+ *           format: date-time
+ *         estado:
+ *           type: string
+ *           enum: [pendiente, en_transito, entregado, devuelto]
+ *       required:
+ *         - numero_seguimiento
+ *         - descripcion
+ *         - peso
+ *         - dimensiones
+ *         - valor_declarado
+ *         - fragil
+ */
 export interface Paquete {
   id?: number;
   numero_seguimiento: string;
