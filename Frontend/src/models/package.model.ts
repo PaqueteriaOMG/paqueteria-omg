@@ -21,6 +21,12 @@ export interface Package {
   notes?: string;
 }
 
+export interface PackageListResponse {
+  data: {
+    data: Package[];
+  };
+}
+
 export interface ClientGroup {
   client_name: string;
   client_email: string;

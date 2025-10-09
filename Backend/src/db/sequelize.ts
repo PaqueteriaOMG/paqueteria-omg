@@ -3,15 +3,15 @@ import dotenv from 'dotenv';
 
 // Asegura que las variables de entorno se carguen al inicializar este módulo
 dotenv.config();
-import { initUsuarioModel, Usuario } from '../models/Usuario';
-import { initClienteModel, Cliente } from '../models/Cliente';
+import { initUserModel, User } from '../models/User';
+import { initClientModel, Client } from '../models/Client';
 import { initPaqueteModel, Paquete } from '../models/Paquete';
 import { initEnvioModel, Envio } from '../models/Envio';
-import { initHistorialPaquetesModel, HistorialPaquetes } from '../models/HistorialPaquetes';
+import { initPackageHistoryModel, PackageHistory } from '../models/PackageHistory';
 import { initEnviosPaquetesModel, EnviosPaquetes } from '../models/EnviosPaquetes';
-import { initRefreshTokensModel, RefreshTokens } from '../models/RefreshTokens';
-import { initPasswordResetTokensModel, PasswordResetTokens } from '../models/PasswordResetTokens';
-import { initEmailVerificationTokensModel, EmailVerificationTokens } from '../models/EmailVerificationTokens';
+import { initRefreshTokenModel, RefreshToken } from '../models/RefreshToken';
+import { initPasswordResetTokenModel, PasswordResetToken } from '../models/PasswordResetToken';
+import { initEmailVerificationTokenModel, EmailVerificationToken } from '../models/EmailVerificationToken';
 
 export const sequelize = new Sequelize(
   process.env.DB_NAME || 'paqueteria_app',
@@ -29,33 +29,33 @@ export const sequelize = new Sequelize(
 );
 
 export const initModels = () => {
-  initUsuarioModel(sequelize);
-  initClienteModel(sequelize);
+  initUserModel(sequelize);
+  initClientModel(sequelize);
   initPaqueteModel(sequelize);
   initEnvioModel(sequelize);
-  initHistorialPaquetesModel(sequelize);
+  initPackageHistoryModel(sequelize);
   initEnviosPaquetesModel(sequelize);
-  initRefreshTokensModel(sequelize);
-  initPasswordResetTokensModel(sequelize);
-  initEmailVerificationTokensModel(sequelize);
+  initRefreshTokenModel(sequelize);
+  initPasswordResetTokenModel(sequelize);
+  initEmailVerificationTokenModel(sequelize);
 
   // Associations
-  Paquete.belongsTo(Cliente, { foreignKey: 'paqu_cliente_id', as: 'cliente' });
-  Cliente.hasMany(Paquete, { foreignKey: 'paqu_cliente_id', as: 'paquetes' });
+  Paquete.belongsTo(Client, { foreignKey: 'paqu_cliente_id', as: 'cliente' });
+  Client.hasMany(Paquete, { foreignKey: 'paqu_cliente_id', as: 'paquetes' });
 
   Envio.belongsTo(Paquete, { foreignKey: 'envi_paquete_id', as: 'paquete' });
   Paquete.hasMany(Envio, { foreignKey: 'envi_paquete_id', as: 'envios' });
 
-  Paquete.hasMany(HistorialPaquetes, { foreignKey: 'hipa_paquete_id', as: 'historial' });
-  HistorialPaquetes.belongsTo(Paquete, { foreignKey: 'hipa_paquete_id', as: 'paquete' });
-
-  HistorialPaquetes.belongsTo(Usuario, { foreignKey: 'hipa_usuario_id', as: 'usuario' });
-  Usuario.hasMany(HistorialPaquetes, { foreignKey: 'hipa_usuario_id', as: 'historial' });
+  initPackageHistoryModel(sequelize);
+  Paquete.hasMany(PackageHistory, { foreignKey: 'pahi_package_id', as: 'historial' });
+  PackageHistory.belongsTo(Paquete, { foreignKey: 'pahi_package_id', as: 'paquete' });
+  PackageHistory.belongsTo(User, { foreignKey: 'pahi_user_id', as: 'usuario' });
+  User.hasMany(PackageHistory, { foreignKey: 'pahi_user_id', as: 'historial' });
 
   // Auth token associations
-  RefreshTokens.belongsTo(Usuario, { foreignKey: 'reto_user_id', as: 'usuario' });
-  PasswordResetTokens.belongsTo(Usuario, { foreignKey: 'prt_user_id', as: 'usuario' });
-  EmailVerificationTokens.belongsTo(Usuario, { foreignKey: 'evt_user_id', as: 'usuario' });
+  RefreshToken.belongsTo(User, { foreignKey: 'reft_user_id', as: 'usuario' });
+  PasswordResetToken.belongsTo(User, { foreignKey: 'part_user_id', as: 'usuario' });
+  EmailVerificationToken.belongsTo(User, { foreignKey: 'evt_user_id', as: 'usuario' });
 
   // Many-to-many: Envios <-> Paquetes
   Paquete.belongsToMany(Envio, {
@@ -73,13 +73,13 @@ export const initModels = () => {
 };
 
 export const models = {
-  Usuario,
-  Cliente,
+  User,
+  Client,
   Paquete,
   Envio,
-  HistorialPaquetes,
+  PackageHistory,
   EnviosPaquetes,
-  RefreshTokens,
-  PasswordResetTokens,
-  EmailVerificationTokens
+  RefreshToken,
+  PasswordResetToken,
+  EmailVerificationToken
 };

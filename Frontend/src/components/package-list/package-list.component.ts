@@ -49,7 +49,9 @@ export class PackageListComponent implements OnInit {
     private router: Router,
     private http: HttpClient
   ) {
-    this.packages$ = this.packageService.getPackages();
+    this.packages$ = this.packageService.getPackages().pipe(
+      map(response => response.data.data)
+    );
 
     this.filteredPackages$ = combineLatest([
       this.packages$,

@@ -6,12 +6,12 @@ import { Op } from 'sequelize';
 
 export class UsuariosController {
   private UsuarioModel: any;
-  private RefreshTokensModel: any;
+  private RefreshTokenModel: any;
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
     this.UsuarioModel = mdl.Usuario;
-    this.RefreshTokensModel = mdl.RefreshTokens;
+    this.RefreshTokenModel = mdl.RefreshToken;
   }
 
   async getAll(req: any, res: Response) {
@@ -251,7 +251,7 @@ export class UsuariosController {
       const hashedNewPassword = await bcrypt.hash(new_password, 10);
       await this.UsuarioModel.update({ usua_password_hash: hashedNewPassword }, { where: { usua_id: id } });
       try {
-        await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_user_id: id, reto_revoked: 0 } });
+        await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_user_id: id, reft_revoked: 0 } });
       } catch (e) {
         console.warn('No se pudo revocar algunos tokens de refresco para el usuario', e);
       }

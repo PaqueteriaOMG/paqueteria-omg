@@ -13,15 +13,15 @@ const loginAttempts = new Map<string, { count: number; first: number; blockedUnt
 
 export class AuthController {
   private UsuarioModel: any;
-  private RefreshTokensModel: any;
-  private PasswordResetTokensModel: any;
+  private RefreshTokenModel: any;
+  private PasswordResetTokenModel: any;
   private EmailVerificationTokensModel: any;
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
     this.UsuarioModel = mdl.Usuario;
-    this.RefreshTokensModel = mdl.RefreshTokens;
-    this.PasswordResetTokensModel = mdl.PasswordResetTokens;
+    this.RefreshTokenModel = mdl.RefreshToken;
+    this.PasswordResetTokenModel = mdl.PasswordResetToken;
     this.EmailVerificationTokensModel = mdl.EmailVerificationTokens;
   }
 
@@ -92,7 +92,7 @@ export class AuthController {
       const { token: refreshToken, tokenId } = createRefreshToken(user.usua_id!);
 
       // Guardar/rotar refresh token en BD
-      await this.RefreshTokensModel.create({ reto_token_id: tokenId, reto_user_id: user.usua_id, reto_revoked: 0 });
+      await this.RefreshTokenModel.create({ reft_token_id: tokenId, reft_user_id: user.usua_id, reft_revoked: 0, reft_created_at: new Date() });
 
       // Setear cookie httpOnly con refresh token
       res.cookie('refreshToken', refreshToken, {
@@ -214,7 +214,7 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
 
       res.clearCookie('refreshToken');
       res.json({ message: 'Sesión cerrada correctamente' });
@@ -233,16 +233,16 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-      const tokenRow = await this.RefreshTokensModel.findOne({ where: { reto_token_id: payload.tokenId } });
-      if (!tokenRow || tokenRow.reto_revoked) {
+      const tokenRow = await this.RefreshTokenModel.findOne({ where: { reft_token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.reft_revoked) {
         res.status(401).json({ error: 'Token inválido o revocado' });
         return;
       }
-      const userId = tokenRow.reto_user_id;
+      const userId = tokenRow.reft_user_id;
       const user = await this.UsuarioModel.findOne({ attributes: ['usua_email', 'usua_rol'], where: { usua_id: userId, usua_activo: 1 } });
       if (!user) {
         // Usuario inválido: revocar token actual y limpiar cookie
-        await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
+        await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
         try { res.clearCookie('refreshToken', { path: '/' }); } catch {}
         res.status(401).json({ error: 'Usuario no válido o inactivo' });
         return;
@@ -251,10 +251,10 @@ export class AuthController {
       const { usua_email, usua_rol } = user.dataValues as { usua_email: string; usua_rol: string };
 
       // Revocar token actual y emitir uno nuevo (rotación)
-      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
 
       const { token: newRefreshToken, tokenId: newTokenId } = createRefreshToken(userId);
-      await this.RefreshTokensModel.create({ reto_token_id: newTokenId, reto_user_id: userId, reto_revoked: 0 });
+      await this.RefreshTokenModel.create({ reft_token_id: newTokenId, reft_user_id: userId, reft_revoked: 0 });
 
       // Setear nueva cookie
       res.cookie('refreshToken', newRefreshToken, {
@@ -288,7 +288,7 @@ export class AuthController {
       if (user && user.usua_activo === 1) {
         const userId = user.usua_id;
         const { tokenId, token } = createPasswordResetToken(userId);
-        await this.PasswordResetTokensModel.create({ prt_token_id: tokenId, prt_user_id: userId, prt_used: 0 });
+        await this.PasswordResetTokenModel.create({ part_token_id: tokenId, part_user_id: userId, is_used: 0 });
         if (process.env.NODE_ENV !== 'production') {
           console.log(`[PasswordReset] Token para ${email}:`, token);
         }
@@ -318,7 +318,7 @@ export class AuthController {
       }
 
       const payload = verifyPasswordResetToken(token);
-      const tokenRow = await this.PasswordResetTokensModel.findOne({ where: { prt_token_id: payload.tokenId } });
+      const tokenRow = await this.PasswordResetTokenModel.findOne({ where: { part_token_id: payload.tokenId } });
       if (!tokenRow || tokenRow.prt_used === 1) {
         res.status(400).json({ error: 'Token inválido o ya utilizado' });
         return;
@@ -326,8 +326,8 @@ export class AuthController {
       const userId = tokenRow.prt_user_id;
       const hashed = await bcrypt.hash(newPassword, 10);
       await this.UsuarioModel.update({ usua_password_hash: hashed }, { where: { usua_id: userId } });
-      await this.PasswordResetTokensModel.update({ prt_used: 1 }, { where: { prt_token_id: payload.tokenId } });
-      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_user_id: userId, reto_revoked: 0 } });
+      await this.PasswordResetTokenModel.update({ is_used: 1 }, { where: { part_token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_user_id: userId, reft_revoked: 0 } });
 
       res.json({ message: 'Contraseña actualizada. Vuelve a iniciar sesión.' });
     } catch (error) {

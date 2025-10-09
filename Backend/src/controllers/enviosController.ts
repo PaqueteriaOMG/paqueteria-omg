@@ -14,7 +14,7 @@ export class EnviosController {
     this.EnvioModel = mdl.Envio;
     this.PaqueteModel = mdl.Paquete;
     this.ClienteModel = mdl.Cliente;
-    this.HistorialModel = mdl.HistorialPaquetes;
+    this.HistorialModel = mdl.PackageHistory;
     this.EnviosPaquetesModel = mdl.EnviosPaquetes;
   }
 

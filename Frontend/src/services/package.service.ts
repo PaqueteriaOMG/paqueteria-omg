@@ -16,6 +16,7 @@ import {
   PackageStats,
   CreatePackageRequest,
   ClientGroup,
+  PackageListResponse,
 } from "../models/package.model";
 import { ApiEnvelope, User } from "./auth.service";
 
@@ -141,13 +142,13 @@ export class PackageService {
         })
       );
   }*/
-  getPackages(): Observable<Package[]> {
+  getPackages(): Observable<PackageListResponse> {
     const token = localStorage.getItem("access_token"); // o donde sea que lo guardes
 
     const headers = new HttpHeaders({
       Authorization: `Bearer ${token}`,
     });
-    return this.http.get<Package[]>(`${this.baseUrl}/api/paquetes`, {
+    return this.http.get<PackageListResponse>(`${this.baseUrl}/api/paquetes`, {
       headers,
     });
   }

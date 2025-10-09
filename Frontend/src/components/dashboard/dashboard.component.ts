@@ -4,10 +4,11 @@ import { Router } from "@angular/router";
 import { PackageService } from "../../services/package.service";
 import {
   Package,
+  PackageListResponse,
   PackageStats,
   PackageStatus,
 } from "../../models/package.model";
-import { Observable } from "rxjs";
+import { map, Observable } from "rxjs";
 
 @Component({
   selector: "app-dashboard",
@@ -21,15 +22,20 @@ export class DashboardComponent implements OnInit {
   stats$: Observable<PackageStats>;
 
   constructor(private packageService: PackageService, private router: Router) {
-    this.packages$ = this.packageService.getPackages();
+    this.packages$ = this.packageService.getPackages().pipe(
+      map(response => response.data.data)
+    );
     this.stats$ = this.packageService.getPackageStats();
   }
 
   ngOnInit() {
-    this.packages$ = this.packageService.getPackages();
-    this.stats$ = this.packageService.getPackageStats();
     console.log(
-      this.packages$.subscribe((respuesta) => console.log(respuesta))
+      this.packages$.subscribe((respuesta) => {
+        for (const packagexd of respuesta) {
+          // packagexd.status = PackageStatus[packagexd.status];
+          console.log(packagexd);
+        }
+      })
     );
   }
 
