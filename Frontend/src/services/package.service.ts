@@ -1,9 +1,26 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
-import { Package, PackageStatus, PackageStats, CreatePackageRequest, ClientGroup } from '../models/package.model';
+import { HttpHeaders } from "@angular/common/http";
+import { Injectable } from "@angular/core";
+import {
+  BehaviorSubject,
+  catchError,
+  map,
+  Observable,
+  of,
+  tap,
+  throwError,
+} from "rxjs";
+import { HttpClient } from "@angular/common/http";
+import {
+  Package,
+  PackageStatus,
+  PackageStats,
+  CreatePackageRequest,
+  ClientGroup,
+} from "../models/package.model";
+import { ApiEnvelope, User } from "./auth.service";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class PackageService {
   private packagesSubject = new BehaviorSubject<Package[]>([]);
@@ -11,8 +28,9 @@ export class PackageService {
 
   public packages$ = this.packagesSubject.asObservable();
   public loading$ = this.loadingSubject.asObservable();
-
-  constructor() {
+  private baseUrl = "http://localhost:3000";
+  constructor(private http: HttpClient) {}
+  /*constructor() {
     this.loadMockData();
   }
 
@@ -105,40 +123,74 @@ export class PackageService {
     ];
 
     this.packagesSubject.next(mockPackages);
-  }
+  }*/
 
+  /*getPackages(): Observable<
+    Package[]
+  > {
+    this.loadingSubject.next(true);
+    return this.http
+      .get<ApiEnvelope<Package[]>>(`${this.baseUrl}/api/paquetes`, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((res) => res.data), // asumiendo que tu API responde con un "data"
+        tap((packages) => {
+          this.packagesSubject.next(packages);
+          this.loadingSubject.next(false);
+        })
+      );
+  }*/
   getPackages(): Observable<Package[]> {
-    return this.packages$;
+    const token = localStorage.getItem("access_token"); // o donde sea que lo guardes
+
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+    });
+    return this.http.get<Package[]>(`${this.baseUrl}/api/paquetes`, {
+      headers,
+    });
+  }
+  async ngOnInit() {
+    const paquete = await this.getPackageById("1").toPromise();
+    console.log("Primer paquete:");
+    console.log(paquete);
   }
 
   getPackageById(id: string): Observable<Package | undefined> {
-    const packages = this.packagesSubject.value;
-    const package_ = packages.find(p => p.id === id);
-    return of(package_);
+    return this.http
+      .get<{ data: Package }>(`${this.baseUrl}/api/paquetes/${id}`, {
+        withCredentials: true,
+      })
+      .pipe(map((res) => res.data));
   }
 
   getPackageStats(): Observable<PackageStats> {
     const packages = this.packagesSubject.value;
     const stats: PackageStats = {
       total: packages.length,
-      pending: packages.filter(p => p.status === PackageStatus.PENDING).length,
-      in_transit: packages.filter(p => p.status === PackageStatus.IN_TRANSIT).length,
-      delivered: packages.filter(p => p.status === PackageStatus.DELIVERED).length,
-      returned: packages.filter(p => p.status === PackageStatus.RETURNED).length
+      pending: packages.filter((p) => p.status === PackageStatus.PENDING)
+        .length,
+      in_transit: packages.filter((p) => p.status === PackageStatus.IN_TRANSIT)
+        .length,
+      delivered: packages.filter((p) => p.status === PackageStatus.DELIVERED)
+        .length,
+      returned: packages.filter((p) => p.status === PackageStatus.RETURNED)
+        .length,
     };
     return of(stats);
   }
 
   createPackage(request: CreatePackageRequest): Observable<Package> {
     this.loadingSubject.next(true);
-    
+
     const newPackage: Package = {
       id: Date.now().toString(),
       tracking_number: `PKG${Date.now().toString().slice(-6)}`,
       ...request,
       status: PackageStatus.PENDING,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     setTimeout(() => {
@@ -152,36 +204,40 @@ export class PackageService {
 
   updatePackage(id: string, updates: Partial<Package>): Observable<Package> {
     this.loadingSubject.next(true);
-    
+
     setTimeout(() => {
       const currentPackages = this.packagesSubject.value;
-      const index = currentPackages.findIndex(p => p.id === id);
-      
+      const index = currentPackages.findIndex((p) => p.id === id);
+
       if (index !== -1) {
         const updatedPackage = {
           ...currentPackages[index],
           ...updates,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         };
-        
+
         const updatedPackages = [...currentPackages];
         updatedPackages[index] = updatedPackage;
         this.packagesSubject.next(updatedPackages);
       }
-      
+
       this.loadingSubject.next(false);
     }, 800);
 
-    const package_ = this.packagesSubject.value.find(p => p.id === id);
-    return of({ ...package_!, ...updates, updated_at: new Date().toISOString() });
+    const package_ = this.packagesSubject.value.find((p) => p.id === id);
+    return of({
+      ...package_!,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    });
   }
 
   deletePackage(id: string): Observable<boolean> {
     this.loadingSubject.next(true);
-    
+
     setTimeout(() => {
       const currentPackages = this.packagesSubject.value;
-      const filteredPackages = currentPackages.filter(p => p.id !== id);
+      const filteredPackages = currentPackages.filter((p) => p.id !== id);
       this.packagesSubject.next(filteredPackages);
       this.loadingSubject.next(false);
     }, 500);
@@ -191,18 +247,19 @@ export class PackageService {
 
   searchPackages(query: string): Observable<Package[]> {
     const packages = this.packagesSubject.value;
-    const filtered = packages.filter(p =>
-      p.tracking_number.toLowerCase().includes(query.toLowerCase()) ||
-      p.sender_name.toLowerCase().includes(query.toLowerCase()) ||
-      p.recipient_name.toLowerCase().includes(query.toLowerCase()) ||
-      p.description.toLowerCase().includes(query.toLowerCase())
+    const filtered = packages.filter(
+      (p) =>
+        p.tracking_number.toLowerCase().includes(query.toLowerCase()) ||
+        p.sender_name.toLowerCase().includes(query.toLowerCase()) ||
+        p.recipient_name.toLowerCase().includes(query.toLowerCase()) ||
+        p.description.toLowerCase().includes(query.toLowerCase())
     );
     return of(filtered);
   }
 
   filterByStatus(status: PackageStatus): Observable<Package[]> {
     const packages = this.packagesSubject.value;
-    const filtered = packages.filter(p => p.status === status);
+    const filtered = packages.filter((p) => p.status === status);
     return of(filtered);
   }
 
@@ -210,9 +267,11 @@ export class PackageService {
     const packages = this.packagesSubject.value;
     const groups = new Map<string, ClientGroup>();
 
-    packages.forEach(pkg => {
-      const key = `${pkg.recipient_name}-${pkg.recipient_address}-${pkg.estimated_delivery.split('T')[0]}`;
-      
+    packages.forEach((pkg) => {
+      const key = `${pkg.recipient_name}-${pkg.recipient_address}-${
+        pkg.estimated_delivery.split("T")[0]
+      }`;
+
       if (groups.has(key)) {
         const group = groups.get(key)!;
         group.packages.push(pkg);
@@ -226,7 +285,7 @@ export class PackageService {
           delivery_date: pkg.estimated_delivery,
           packages: [pkg],
           total_packages: 1,
-          total_products: pkg.quantity
+          total_products: pkg.quantity,
         });
       }
     });
