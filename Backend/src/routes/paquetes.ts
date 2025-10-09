@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, query, validationResult } from 'express-validator';
-import { Pool } from 'mysql2/promise';
+import { models as defaultModels } from '../db/sequelize';
 import { PaquetesController } from '../controllers/paquetesController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
@@ -27,8 +27,8 @@ const router = Router();
  *         description: Paquete no encontrado
  */
 router.get('/public/track/:code', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getByPublicCode(req, res);
 });
 
@@ -86,6 +86,7 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         schema:
  *           type: integer
  *           minimum: 1
+ *           default: 1
  *         description: Número de página
  *       - in: query
  *         name: limit
@@ -93,18 +94,21 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *           type: integer
  *           minimum: 1
  *           maximum: 100
+ *           default: 10
  *         description: Cantidad de elementos por página
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
  *           enum: [numero_seguimiento, descripcion, peso, fecha_creacion, estado]
+ *           default: numero_seguimiento
  *         description: Campo por el cual ordenar
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [asc, desc]
+ *           default: desc
  *         description: Orden de clasificación
  *     responses:
  *       200:
@@ -115,8 +119,8 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         description: No autorizado
  */
 router.get('/', paginationValidation, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getAll(req, res);
 });
 
@@ -145,8 +149,8 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
  *         description: Paquete no encontrado
  */
 router.get('/:id', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getById(req, res);
 });
 
@@ -175,8 +179,8 @@ router.get('/:id', async (req: any, res: any) => {
  *         description: Paquete no encontrado
  */
 router.get('/tracking/:numero', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getByTracking(req, res);
 });
 
@@ -225,8 +229,8 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.create(req, res);
 });
 
@@ -298,8 +302,8 @@ router.post('/bulk', authorizeRoles('admin', 'empleado'), [
   body('items.*.direccion_origen').notEmpty().withMessage('direccion_origen requerida'),
   body('items.*.direccion_destino').notEmpty().withMessage('direccion_destino requerida')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.bulkCreate(req, res);
 });
 
@@ -334,8 +338,8 @@ router.post('/bulk', authorizeRoles('admin', 'empleado'), [
  *         description: Paquete no encontrado
  */
 router.get('/:id/etiqueta', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getLabel(req, res);
 });
 
@@ -366,8 +370,8 @@ router.get('/:id/etiqueta', authorizeRoles('admin', 'empleado'), async (req: any
  *         description: Paquete no encontrado
  */
 router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.getHistory(req, res);
 });
 
@@ -425,8 +429,8 @@ router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: an
  *         description: Paquete no encontrado
  */
 router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.update(req, res);
 });
 
@@ -473,8 +477,8 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, valid
 router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
   body('estado').isIn(['pendiente', 'en_transito', 'entregado', 'devuelto']).withMessage('Estado inválido')
 ], async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.updateStatus(req, res);
 });
 
@@ -505,8 +509,8 @@ router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
  *         description: Paquete no encontrado
  */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const paquetesController = new PaquetesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
   await paquetesController.delete(req, res);
 });
 

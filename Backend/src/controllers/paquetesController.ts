@@ -1,12 +1,22 @@
 import { Response } from 'express';
-import { Pool } from 'mysql2/promise';
+import { Op } from 'sequelize';
+import { sequelize, models as defaultModels } from '../db/sequelize';
 import { Paquete } from '../types';
 
 export class PaquetesController {
-  private db: Pool;
+  private PaqueteModel: any;
+  private ClienteModel: any;
+  private HistorialModel: any;
+  private EnviosPaquetesModel: any;
+  private EnvioModel: any;
 
-  constructor(db: Pool) {
-    this.db = db;
+  constructor(_models?: any) {
+    const mdl = _models || defaultModels;
+    this.PaqueteModel = mdl.Paquete;
+    this.ClienteModel = mdl.Cliente;
+    this.HistorialModel = mdl.HistorialPaquetes;
+    this.EnviosPaquetesModel = mdl.EnviosPaquetes;
+    this.EnvioModel = mdl.Envio;
   }
 
   private generateTrackingNumber(): string {
@@ -23,125 +33,117 @@ export class PaquetesController {
       const estado = req.query.estado;
       const search = req.query.search || '';
 
-      let query = `
-        SELECT p.*, p.paqu_id AS id, c.clie_nombre as cliente_nombre 
-        FROM Paquetes p 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE p.paqu_activo = 1
-      `;
-      let countQuery = 'SELECT COUNT(*) as total FROM Paquetes p WHERE p.paqu_activo = 1';
-      const params: any[] = [];
-
-      if (estado) {
-        query += ' AND p.paqu_estado = ?';
-        countQuery += ' AND p.paqu_estado = ?';
-        params.push(estado);
-      }
+      const where: any = { paqu_activo: 1 };
+      if (estado) where.paqu_estado = estado;
 
       if (search) {
-        query += ' AND (p.paqu_numero_seguimiento LIKE ? OR p.paqu_descripcion LIKE ? OR c.clie_nombre LIKE ?)';
-        countQuery += ' AND EXISTS (SELECT 1 FROM Clientes c2 WHERE c2.clie_id = p.paqu_cliente_id AND (p.paqu_numero_seguimiento LIKE ? OR p.paqu_descripcion LIKE ? OR c2.clie_nombre LIKE ?))';
-        const searchParam = `%${search}%`;
-        params.push(searchParam, searchParam, searchParam);
+        const like = `%${search}%`;
+        where[Op.or] = [
+          { paqu_numero_seguimiento: { [Op.like]: like } },
+          { paqu_descripcion: { [Op.like]: like } },
+          sequelize.where(sequelize.col('cliente.clie_nombre'), { [Op.like]: like })
+        ];
       }
 
-      query += ' ORDER BY p.paqu_created_at DESC LIMIT ? OFFSET ?';
-      params.push(limit, offset);
+      const result = await this.PaqueteModel.findAndCountAll({
+        where,
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false }],
+        limit,
+        offset,
+        order: [['paqu_created_at', 'DESC']]
+      });
 
-      const [rows] = await this.db.execute(query, params);
-      const [countRows] = await this.db.execute(countQuery, params.slice(0, -2));
-      
-      const total = (countRows as any[])[0].total;
+      const rows = result.rows.map((p: any) => {
+        const plain = p.get({ plain: true });
+        return {
+          ...plain,
+          id: plain.paqu_id,
+          cliente_nombre: plain.cliente?.clie_nombre
+        } as Paquete;
+      });
+
+      const total = result.count;
       const totalPages = Math.ceil(total / limit);
 
       res.json({
-        data: rows as Paquete[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages
-        }
+        data: rows,
+        pagination: { page, limit, total, totalPages }
       });
     } catch (error) {
       console.error('Error al obtener paquetes:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   async getById(req: any, res: Response) {
     try {
       const { id } = req.params;
-      
-      const [rows] = await this.db.execute(`
-        SELECT p.*, p.paqu_id AS id, c.clie_nombre as cliente_nombre, c.clie_email as cliente_email, c.clie_telefono as cliente_telefono
-        FROM Paquetes p 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE p.paqu_id = ? AND p.paqu_activo = 1
-      `, [id]);
-      const paquetes = rows as any[];
+      const paquete = await this.PaqueteModel.findOne({
+        where: { paqu_id: id, paqu_activo: 1 },
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+      });
 
-      if (paquetes.length === 0) {
-        res.status(404).json({
-          error: 'Paquete no encontrado'
-        });
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      // Obtener historial del paquete
-      const [historial] = await this.db.execute(
-        'SELECT * FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
-        [id]
-      );
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: id },
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
 
-      const paquete = paquetes[0];
-      paquete.historial = historial;
-
-      res.json(paquete);
+      const plain = paquete.get({ plain: true });
+      res.json({
+        ...plain,
+        id: plain.paqu_id,
+        cliente_nombre: plain.cliente?.clie_nombre,
+        cliente_email: plain.cliente?.clie_email,
+        cliente_telefono: plain.cliente?.clie_telefono,
+        historial: historial.map((h: any) => h.get({ plain: true }))
+      });
     } catch (error) {
       console.error('Error al obtener paquete:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   async getByTracking(req: any, res: Response) {
     try {
       const { numero } = req.params;
-      
-      const [rows] = await this.db.execute(`
-        SELECT p.*, p.paqu_id AS id, c.clie_nombre as cliente_nombre, c.clie_email as cliente_email, c.clie_telefono as cliente_telefono
-        FROM Paquetes p 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE (p.paqu_numero_seguimiento = ? OR p.paqu_codigo_rastreo = ?) AND p.paqu_activo = 1
-      `, [numero, numero]);
-      const paquetes = rows as any[];
+      const paquete = await this.PaqueteModel.findOne({
+        where: {
+          paqu_activo: 1,
+          [Op.or]: [
+            { paqu_numero_seguimiento: numero },
+            { paqu_codigo_rastreo: numero }
+          ]
+        },
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+      });
 
-      if (paquetes.length === 0) {
-        res.status(404).json({
-          error: 'Paquete no encontrado'
-        });
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      // Obtener historial del paquete
-      const [historial] = await this.db.execute(
-         'SELECT * FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
-         [paquetes[0].id]
-       );
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: paquete.paqu_id },
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
 
-      const paquete = paquetes[0];
-      paquete.historial = historial;
-
-      res.json(paquete);
+      const plain = paquete.get({ plain: true });
+      res.json({
+        ...plain,
+        id: plain.paqu_id,
+        cliente_nombre: plain.cliente?.clie_nombre,
+        cliente_email: plain.cliente?.clie_email,
+        cliente_telefono: plain.cliente?.clie_telefono,
+        historial: historial.map((h: any) => h.get({ plain: true }))
+      });
     } catch (error) {
       console.error('Error al obtener paquete por número de seguimiento:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -155,52 +157,40 @@ export class PaquetesController {
     try {
       const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
 
-      // Verificar que el cliente existe
-      const [clienteExists] = await this.db.execute(
-        'SELECT clie_id AS id FROM Clientes WHERE clie_id = ? AND clie_activo = 1',
-        [cliente_id]
-      );
-      
-      if ((clienteExists as any[]).length === 0) {
-        res.status(400).json({
-          error: 'Cliente no encontrado'
-        });
+      const cliente = await this.ClienteModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 } });
+      if (!cliente) {
+        res.status(400).json({ error: 'Cliente no encontrado' });
         return;
       }
 
-      // Generar número de seguimiento único
       let numero_seguimiento: string | undefined;
       let isUnique = false;
       let attempts = 0;
-      
       while (!isUnique && attempts < 10) {
         numero_seguimiento = this.generateTrackingNumber();
-        const [existing] = await this.db.execute(
-          'SELECT paqu_id AS id FROM Paquetes WHERE paqu_numero_seguimiento = ? OR paqu_codigo_rastreo = ?',
-          [numero_seguimiento, numero_seguimiento]
-        );
-        isUnique = (existing as any[]).length === 0;
+        const existing = await this.PaqueteModel.findOne({
+          where: {
+            [Op.or]: [
+              { paqu_numero_seguimiento: numero_seguimiento },
+              { paqu_codigo_rastreo: numero_seguimiento }
+            ]
+          }
+        });
+        isUnique = !existing;
         attempts++;
       }
-
       if (!isUnique || !numero_seguimiento) {
-        res.status(500).json({
-          error: 'Error al generar número de seguimiento único'
-        });
+        res.status(500).json({ error: 'Error al generar número de seguimiento único' });
         return;
       }
 
-      // Generar código público único
       let public_code: string | undefined;
       let isPublicUnique = false;
       let publicAttempts = 0;
       while (!isPublicUnique && publicAttempts < 10) {
         public_code = this.generatePublicCode();
-        const [existingPublic] = await this.db.execute(
-          'SELECT paqu_id AS id FROM Paquetes WHERE paqu_codigo_rastreo_publico = ?',
-          [public_code]
-        );
-        isPublicUnique = (existingPublic as any[]).length === 0;
+        const existingPublic = await this.PaqueteModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code } });
+        isPublicUnique = !existingPublic;
         publicAttempts++;
       }
       if (!isPublicUnique || !public_code) {
@@ -208,32 +198,33 @@ export class PaquetesController {
         return;
       }
 
-      const [result] = await this.db.execute(`
-        INSERT INTO Paquetes (
-          paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_codigo_rastreo_publico, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones, 
-          paqu_valor_declarado, paqu_direccion_origen, paqu_direccion_destino, paqu_estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
-      `, [numero_seguimiento, numero_seguimiento, public_code, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]);
+      const pkg = await this.PaqueteModel.create({
+        paqu_numero_seguimiento: numero_seguimiento,
+        paqu_codigo_rastreo: numero_seguimiento,
+        paqu_codigo_rastreo_publico: public_code,
+        paqu_cliente_id: cliente_id,
+        paqu_descripcion: descripcion,
+        paqu_peso: peso,
+        paqu_dimensiones: dimensiones,
+        paqu_valor_declarado: valor_declarado,
+        paqu_direccion_origen: direccion_origen,
+        paqu_direccion_destino: direccion_destino,
+        paqu_estado: 'pendiente'
+      });
 
-      const insertId = (result as any).insertId;
-      
-      // Crear entrada en historial
-      await this.db.execute(
-         'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, NULL, "pendiente", "Paquete creado", ?)',
-         [insertId, req.user?.id || null]
-       );
-      
-      const [newPaquete] = await this.db.execute(
-        'SELECT p.*, p.paqu_id AS id FROM Paquetes p WHERE p.paqu_id = ?',
-        [insertId]
-      );
+      await this.HistorialModel.create({
+        hipa_paquete_id: pkg.paqu_id,
+        hipa_estado_anterior: null,
+        hipa_estado_nuevo: 'pendiente',
+        hipa_comentario: 'Paquete creado',
+        hipa_usuario_id: req.user?.id || null
+      });
 
-      res.status(201).json((newPaquete as Paquete[])[0]);
+      const plain = pkg.get({ plain: true });
+      res.status(201).json({ ...plain, id: plain.paqu_id } as Paquete);
     } catch (error) {
       console.error('Error al crear paquete:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -242,47 +233,40 @@ export class PaquetesController {
       const { id } = req.params;
       const { descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
 
-      // Verificar si el paquete existe
-      const [existingPaquete] = await this.db.execute(
-        'SELECT * FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1',
-        [id]
-      );
-      
-      if ((existingPaquete as any[]).length === 0) {
-        res.status(404).json({
-          error: 'Paquete no encontrado'
-        });
+      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      const paquete = (existingPaquete as any[])[0];
-      
-      // No permitir actualizar paquetes entregados
       if (paquete.paqu_estado === 'entregado') {
-        res.status(400).json({
-          error: 'No se puede actualizar un paquete entregado'
-        });
+        res.status(400).json({ error: 'No se puede actualizar un paquete entregado' });
         return;
       }
 
-      await this.db.execute(`
-        UPDATE Paquetes SET 
-          paqu_descripcion = ?, paqu_peso = ?, paqu_dimensiones = ?, paqu_valor_declarado = ?, 
-          paqu_direccion_origen = ?, paqu_direccion_destino = ?, paqu_updated_at = CURRENT_TIMESTAMP 
-        WHERE paqu_id = ?
-      `, [descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino, id]);
+      if (descripcion !== undefined) paquete.paqu_descripcion = descripcion;
+      if (peso !== undefined) paquete.paqu_peso = peso;
+      if (dimensiones !== undefined) paquete.paqu_dimensiones = dimensiones;
+      if (valor_declarado !== undefined) paquete.paqu_valor_declarado = valor_declarado;
+      if (direccion_origen !== undefined) paquete.paqu_direccion_origen = direccion_origen;
+      if (direccion_destino !== undefined) paquete.paqu_direccion_destino = direccion_destino;
+      paquete.paqu_updated_at = new Date();
 
-      const [updatedPaquete] = await this.db.execute(
-        'SELECT p.*, p.paqu_id AS id FROM Paquetes p WHERE p.paqu_id = ?',
-        [id]
-      );
+      await paquete.save();
 
-      res.json((updatedPaquete as Paquete[])[0]);
+      await this.HistorialModel.create({
+        hipa_paquete_id: paquete.paqu_id,
+        hipa_estado_anterior: paquete.paqu_estado,
+        hipa_estado_nuevo: paquete.paqu_estado,
+        hipa_comentario: 'Paquete actualizado',
+        hipa_usuario_id: req.user?.id || null
+      });
+
+      const plain = paquete.get({ plain: true });
+      res.json({ ...plain, id: plain.paqu_id } as Paquete);
     } catch (error) {
       console.error('Error al actualizar paquete:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -291,23 +275,13 @@ export class PaquetesController {
       const { id } = req.params;
       const { estado, comentario } = req.body;
 
-      // Verificar si el paquete existe
-      const [existingPaquete] = await this.db.execute(
-        'SELECT * FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1',
-        [id]
-      );
-      
-      if ((existingPaquete as any[]).length === 0) {
-        res.status(404).json({
-          error: 'Paquete no encontrado'
-        });
+      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      const paquete = (existingPaquete as any[])[0];
       const estadoAnterior = paquete.paqu_estado as string;
-
-      // Validación de máquina de estados
       const allowedTransitions: Record<string, string[]> = {
         pendiente: ['en_transito'],
         en_transito: ['entregado', 'devuelto'],
@@ -320,29 +294,23 @@ export class PaquetesController {
         return;
       }
 
-      // Actualizar estado del paquete
-      await this.db.execute(
-        'UPDATE Paquetes SET paqu_estado = ?, paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?',
-        [estado, id]
-      );
+      paquete.paqu_estado = estado;
+      paquete.paqu_updated_at = new Date();
+      await paquete.save();
 
-      // Crear entrada en historial
-      await this.db.execute(
-         'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-         [id, estadoAnterior, estado, comentario || `Estado cambiado a ${estado}` , req.user?.id || null]
-       );
+      await this.HistorialModel.create({
+        hipa_paquete_id: paquete.paqu_id,
+        hipa_estado_anterior: estadoAnterior,
+        hipa_estado_nuevo: estado,
+        hipa_comentario: comentario || `Estado cambiado a ${estado}`,
+        hipa_usuario_id: req.user?.id || null
+      });
 
-      const [updatedPaquete] = await this.db.execute(
-        'SELECT p.*, p.paqu_id AS id FROM Paquetes p WHERE p.paqu_id = ?',
-        [id]
-      );
-
-      res.json((updatedPaquete as Paquete[])[0]);
+      const plain = paquete.get({ plain: true });
+      res.json({ ...plain, id: plain.paqu_id } as Paquete);
     } catch (error) {
       console.error('Error al actualizar estado del paquete:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -354,88 +322,77 @@ export class PaquetesController {
       return;
     }
 
-    const conn = await this.db.getConnection();
+    const tx = await sequelize.transaction();
     try {
-      await conn.beginTransaction();
-      const createdIds: number[] = [];
-
+      const created: Paquete[] = [];
       for (const item of items) {
         const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = item;
 
-        // Verificar cliente
-        const [clienteExists] = await conn.execute(
-          'SELECT clie_id AS id FROM Clientes WHERE clie_id = ? AND clie_activo = 1',
-          [cliente_id]
-        );
-        if ((clienteExists as any[]).length === 0) {
-          throw new Error(`Cliente ${cliente_id} no encontrado`);
-        }
+        const cliente = await this.ClienteModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 }, transaction: tx });
+        if (!cliente) throw new Error(`Cliente ${cliente_id} no encontrado`);
 
-        // Generar número de seguimiento único
         let numero_seguimiento: string | undefined;
         let isUnique = false;
         let attempts = 0;
         while (!isUnique && attempts < 10) {
           numero_seguimiento = this.generateTrackingNumber();
-          const [existing] = await conn.execute(
-            'SELECT paqu_id AS id FROM Paquetes WHERE paqu_numero_seguimiento = ? OR paqu_codigo_rastreo = ?',
-            [numero_seguimiento, numero_seguimiento]
-          );
-          isUnique = (existing as any[]).length === 0;
+          const existing = await this.PaqueteModel.findOne({
+            where: {
+              [Op.or]: [
+                { paqu_numero_seguimiento: numero_seguimiento },
+                { paqu_codigo_rastreo: numero_seguimiento }
+              ]
+            },
+            transaction: tx
+          });
+          isUnique = !existing;
           attempts++;
         }
-        if (!isUnique || !numero_seguimiento) {
-          throw new Error('No fue posible generar un número de seguimiento único');
-        }
+        if (!isUnique || !numero_seguimiento) throw new Error('No fue posible generar un número de seguimiento único');
 
-        // Generar código público único
         let public_code: string | undefined;
         let isPublicUnique = false;
         let publicAttempts = 0;
         while (!isPublicUnique && publicAttempts < 10) {
           public_code = this.generatePublicCode();
-          const [existingPublic] = await conn.execute(
-            'SELECT paqu_id AS id FROM Paquetes WHERE paqu_codigo_rastreo_publico = ?',
-            [public_code]
-          );
-          isPublicUnique = (existingPublic as any[]).length === 0;
+          const existingPublic = await this.PaqueteModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code }, transaction: tx });
+          isPublicUnique = !existingPublic;
           publicAttempts++;
         }
-        if (!isPublicUnique || !public_code) {
-          throw new Error('No fue posible generar un código público único');
-        }
+        if (!isPublicUnique || !public_code) throw new Error('No fue posible generar un código público único');
 
-        const [result] = await conn.execute(
-          `INSERT INTO Paquetes (
-            paqu_numero_seguimiento, paqu_codigo_rastreo, paqu_codigo_rastreo_publico, paqu_cliente_id, paqu_descripcion, paqu_peso, paqu_dimensiones,
-            paqu_valor_declarado, paqu_direccion_origen, paqu_direccion_destino, paqu_estado
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')`,
-          [numero_seguimiento, numero_seguimiento, public_code, cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino]
-        );
+        const pkg = await this.PaqueteModel.create({
+          paqu_numero_seguimiento: numero_seguimiento,
+          paqu_codigo_rastreo: numero_seguimiento,
+          paqu_codigo_rastreo_publico: public_code,
+          paqu_cliente_id: cliente_id,
+          paqu_descripcion: descripcion,
+          paqu_peso: peso,
+          paqu_dimensiones: dimensiones,
+          paqu_valor_declarado: valor_declarado,
+          paqu_direccion_origen: direccion_origen,
+          paqu_direccion_destino: direccion_destino,
+          paqu_estado: 'pendiente'
+        }, { transaction: tx });
 
-        const insertId = (result as any).insertId as number;
-        createdIds.push(insertId);
+        await this.HistorialModel.create({
+          hipa_paquete_id: pkg.paqu_id,
+          hipa_estado_anterior: null,
+          hipa_estado_nuevo: 'pendiente',
+          hipa_comentario: 'Paquete creado (bulk)',
+          hipa_usuario_id: req.user?.id || null
+        }, { transaction: tx });
 
-        await conn.execute(
-          'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, NULL, "pendiente", "Paquete creado (bulk)", ?)',
-          [insertId, req.user?.id || null]
-        );
+        const plain = pkg.get({ plain: true });
+        created.push({ ...(plain as any), id: plain.paqu_id } as Paquete);
       }
 
-      await conn.commit();
-
-      const [rows] = await this.db.execute(
-        `SELECT p.*, p.paqu_id AS id FROM Paquetes p WHERE p.paqu_id IN (${createdIds.map(() => '?').join(',')})`,
-        [...createdIds]
-      );
-
-      res.status(201).json(rows as Paquete[]);
+      await tx.commit();
+      res.status(201).json(created);
     } catch (error: any) {
-      await conn.rollback();
+      await tx.rollback();
       console.error('Error en creación masiva de paquetes:', error);
       res.status(400).json({ error: error?.message || 'Error al crear paquetes en bulk' });
-    } finally {
-      conn.release();
     }
   }
 
@@ -459,19 +416,20 @@ export class PaquetesController {
   async getLabel(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const [rows] = await this.db.execute(
-        `SELECT p.*, p.paqu_id AS id, c.clie_nombre as cliente_nombre
-         FROM Paquetes p LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id
-         WHERE p.paqu_id = ? AND p.paqu_activo = 1`,
-        [id]
-      );
-      const paquetes = rows as any[];
-      if (paquetes.length === 0) {
+      const paquete = await this.PaqueteModel.findOne({
+        where: { paqu_id: id, paqu_activo: 1 },
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false, attributes: ['clie_nombre'] }]
+      });
+      if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
-      const svg = this.buildLabelSVG(paquetes[0]);
-      // Devolver SVG como string dentro de JSON para mantener el envelope estándar
+      const plain = paquete.get({ plain: true });
+      const svg = this.buildLabelSVG({
+        ...plain,
+        id: plain.paqu_id,
+        cliente_nombre: plain.cliente?.clie_nombre
+      });
       res.json({ svg });
     } catch (error) {
       console.error('Error al generar etiqueta:', error);
@@ -483,20 +441,19 @@ export class PaquetesController {
   async getHistory(req: any, res: Response) {
     try {
       const { id } = req.params;
-  
-      // Verificar existencia del paquete activo
-      const [pkgRows] = await this.db.execute('SELECT paqu_id AS id FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1', [id]);
-      if ((pkgRows as any[]).length === 0) {
+
+      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
-  
-      const [historial] = await this.db.execute(
-        'SELECT * FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
-        [id]
-      );
-  
-      res.json(historial);
+
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: id },
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
+
+      res.json(historial.map((h: any) => h.get({ plain: true })));
     } catch (error) {
       console.error('Error al obtener historial del paquete:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -507,56 +464,32 @@ export class PaquetesController {
     try {
       const { id } = req.params;
 
-      // Verificar si el paquete existe
-      const [existingPaquete] = await this.db.execute(
-        'SELECT * FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1',
-        [id]
-      );
-      
-      if ((existingPaquete as any[]).length === 0) {
-        res.status(404).json({
-          error: 'Paquete no encontrado'
-        });
+      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      const paquete = (existingPaquete as any[])[0];
-      
-      // No permitir eliminar paquetes en tránsito o entregados
       if (paquete.paqu_estado === 'en_transito' || paquete.paqu_estado === 'entregado') {
-        res.status(400).json({
-          error: 'No se puede eliminar un paquete en tránsito o entregado'
-        });
+        res.status(400).json({ error: 'No se puede eliminar un paquete en tránsito o entregado' });
         return;
       }
 
-      // Verificar si el paquete está asociado a un envío
-      const [associatedShipment] = await this.db.execute(
-         'SELECT 1 FROM EnviosPaquetes WHERE enpa_paquete_id = ? LIMIT 1',
-         [id]
-       );
-      
-      if ((associatedShipment as any[]).length > 0) {
-        res.status(400).json({
-          error: 'No se puede eliminar un paquete asociado a un envío'
-        });
+      const associated = await this.EnviosPaquetesModel.findOne({ where: { enpa_paquete_id: id } });
+      if (associated) {
+        res.status(400).json({ error: 'No se puede eliminar un paquete asociado a un envío' });
         return;
       }
 
-      // Soft delete
-      await this.db.execute(
-        'UPDATE Paquetes SET paqu_activo = 0, paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?',
-        [id]
+      await this.PaqueteModel.update(
+        { paqu_activo: 0, paqu_updated_at: new Date() },
+        { where: { paqu_id: id } }
       );
 
-      res.json({
-        message: 'Paquete eliminado exitosamente'
-      });
+      res.json({ message: 'Paquete eliminado exitosamente' });
     } catch (error) {
       console.error('Error al eliminar paquete:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -564,53 +497,57 @@ export class PaquetesController {
   async getByPublicCode(req: any, res: Response) {
     try {
       const { code } = req.params;
-      const [rows] = await this.db.execute(
-        `SELECT 
-        p.paqu_id AS id,
-        p.paqu_codigo_rastreo_publico,
-        p.paqu_estado,
-        p.paqu_created_at,
-        p.paqu_updated_at,
-        (
-        SELECT e.envi_fecha_envio_estimada 
-        FROM Envios e 
-        WHERE e.envi_activo = 1 
-        AND (
-        e.envi_paquete_id = p.paqu_id 
-        OR EXISTS (
-        SELECT 1 FROM EnviosPaquetes ep 
-        WHERE ep.enpa_envio_id = e.envi_id AND ep.enpa_paquete_id = p.paqu_id
-        )
-        )
-        ORDER BY e.envi_updated_at DESC
-        LIMIT 1
-        ) AS eta
-        FROM Paquetes p 
-        WHERE p.paqu_codigo_rastreo_publico = ? AND p.paqu_activo = 1`,
-       [code]
-     );
-     const list = rows as any[];
-     if (list.length === 0) {
-       res.status(404).json({ error: 'Paquete no encontrado' });
-       return;
-     }
-      const pkg = list[0];
-      const [historial] = await this.db.execute(
-        'SELECT hipa_estado_nuevo, hipa_comentario, hipa_fecha_cambio FROM HistorialPaquetes WHERE hipa_paquete_id = ? ORDER BY hipa_fecha_cambio DESC',
-        [pkg.id]
-      );
-      const events = (historial as any[]).map(h => ({
+
+      const paquete = await this.PaqueteModel.findOne({
+        where: { paqu_codigo_rastreo_publico: code, paqu_activo: 1 },
+        attributes: ['paqu_id', 'paqu_codigo_rastreo_publico', 'paqu_estado', 'paqu_created_at', 'paqu_updated_at']
+      });
+
+      if (!paquete) {
+        res.status(404).json({ error: 'Paquete no encontrado' });
+        return;
+      }
+
+      let envioIds: number[] = [];
+      const bridges = await this.EnviosPaquetesModel.findAll({
+        where: { enpa_paquete_id: paquete.paqu_id },
+        attributes: ['enpa_envio_id']
+      });
+      envioIds = bridges.map((b: any) => Number(b.enpa_envio_id));
+
+      let eta: Date | null = null;
+      const latestEnvio = await this.EnvioModel.findOne({
+        where: {
+          envi_activo: 1,
+          [Op.or]: [
+            { envi_paquete_id: paquete.paqu_id },
+            envioIds.length ? { envi_id: { [Op.in]: envioIds } } : { envi_id: -1 }
+          ]
+        },
+        order: [['envi_updated_at', 'DESC']],
+        attributes: ['envi_fecha_envio_estimada']
+      });
+      if (latestEnvio) {
+        eta = latestEnvio.envi_fecha_envio_estimada || null;
+      }
+
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: paquete.paqu_id },
+        attributes: ['hipa_estado_nuevo', 'hipa_comentario', 'hipa_fecha_cambio'],
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
+      const events = historial.map((h: any) => h.get({ plain: true })).map((h: any) => ({
         status: h.hipa_estado_nuevo,
         comment: h.hipa_comentario,
         date: h.hipa_fecha_cambio
       }));
 
       res.json({
-        code: pkg.paqu_codigo_rastreo_publico,
-        status: pkg.paqu_estado,
-        created_at: pkg.paqu_created_at,
-        updated_at: pkg.paqu_updated_at,
-        eta: pkg.eta ?? null,
+        code: paquete.paqu_codigo_rastreo_publico,
+        status: paquete.paqu_estado,
+        created_at: paquete.paqu_created_at,
+        updated_at: paquete.paqu_updated_at,
+        eta,
         history: events
       });
     } catch (error) {

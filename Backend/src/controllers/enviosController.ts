@@ -1,11 +1,21 @@
 import { Response } from 'express';
-import { Pool } from 'mysql2/promise';
+import { Op } from 'sequelize';
+import { sequelize, models as defaultModels } from '../db/sequelize';
 
 export class EnviosController {
-  private db: Pool;
+  private EnvioModel: any;
+  private PaqueteModel: any;
+  private ClienteModel: any;
+  private HistorialModel: any;
+  private EnviosPaquetesModel: any;
 
-  constructor(db: Pool) {
-    this.db = db;
+  constructor(_models?: any) {
+    const mdl = _models || defaultModels;
+    this.EnvioModel = mdl.Envio;
+    this.PaqueteModel = mdl.Paquete;
+    this.ClienteModel = mdl.Cliente;
+    this.HistorialModel = mdl.HistorialPaquetes;
+    this.EnviosPaquetesModel = mdl.EnviosPaquetes;
   }
 
   async getAll(req: any, res: Response) {
@@ -14,54 +24,53 @@ export class EnviosController {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
       const estado = req.query.estado;
-      const search = req.query.search || '';
+      const search = (req.query.search || '') as string;
 
-      let query = `
-        SELECT e.*, p.paqu_numero_seguimiento AS numero_seguimiento, c.clie_nombre as cliente_nombre 
-        FROM Envios e 
-        LEFT JOIN Paquetes p ON e.envi_paquete_id = p.paqu_id 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE e.envi_activo = 1
-      `;
-      let countQuery = 'SELECT COUNT(*) as total FROM Envios e WHERE e.envi_activo = 1';
-      const params: any[] = [];
-
-      if (estado) {
-        query += ' AND e.envi_estado = ?';
-        countQuery += ' AND e.envi_estado = ?';
-        params.push(estado);
-      }
+      const where: any = { envi_activo: 1 };
+      if (estado) where.envi_estado = estado;
 
       if (search) {
-        query += ' AND (p.paqu_numero_seguimiento LIKE ? OR c.clie_nombre LIKE ? OR e.envi_direccion_destino LIKE ?)';
-        countQuery += ' AND EXISTS (SELECT 1 FROM Paquetes p2 LEFT JOIN Clientes c2 ON p2.paqu_cliente_id = c2.clie_id WHERE p2.paqu_id = e.envi_paquete_id AND (p2.paqu_numero_seguimiento LIKE ? OR c2.clie_nombre LIKE ? OR e.envi_direccion_destino LIKE ?))';
-        const searchParam = `%${search}%`;
-        params.push(searchParam, searchParam, searchParam);
+        const like = `%${search}%`;
+        where[Op.or] = [
+          { '$paquete.paqu_numero_seguimiento$': { [Op.like]: like } },
+          { '$paquete.cliente.clie_nombre$': { [Op.like]: like } },
+          { envi_direccion_destino: { [Op.like]: like } }
+        ];
       }
 
-      query += ' ORDER BY e.envi_created_at DESC LIMIT ? OFFSET ?';
-      params.push(limit, offset);
+      const result = await this.EnvioModel.findAndCountAll({
+        where,
+        include: [
+          {
+            model: this.PaqueteModel,
+            as: 'paquete',
+            include: [{ model: this.ClienteModel, as: 'cliente' }]
+          }
+        ],
+        order: [['envi_created_at', 'DESC']],
+        limit,
+        offset
+      });
 
-      const [rows] = await this.db.execute(query, params);
-      const [countRows] = await this.db.execute(countQuery, params.slice(0, -2));
+      const data = result.rows.map((envio: any) => {
+        const plain = envio.get({ plain: true });
+        return {
+          ...plain,
+          numero_seguimiento: plain.paquete?.paqu_numero_seguimiento,
+          cliente_nombre: plain.paquete?.cliente?.clie_nombre
+        };
+      });
 
-      const total = (countRows as any[])[0].total;
+      const total = result.count;
       const totalPages = Math.ceil(total / limit);
 
       res.json({
-        data: rows,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages
-        }
+        data,
+        pagination: { page, limit, total, totalPages }
       });
     } catch (error) {
       console.error('Error al obtener envíos:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -69,116 +78,133 @@ export class EnviosController {
     try {
       const { id } = req.params;
 
-      const [rows] = await this.db.execute(`
-        SELECT e.*, p.paqu_numero_seguimiento AS numero_seguimiento, p.paqu_descripcion as paquete_descripcion, c.clie_nombre as cliente_nombre, c.clie_email as cliente_email
-        FROM Envios e 
-        LEFT JOIN Paquetes p ON e.envi_paquete_id = p.paqu_id 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE e.envi_id = ? AND e.envi_activo = 1
-      `, [id]);
-      const envios = rows as any[];
+      const envio = await this.EnvioModel.findOne({
+        where: { envi_id: id, envi_activo: 1 },
+        include: [
+          {
+            model: this.PaqueteModel,
+            as: 'paquete',
+            include: [{ model: this.ClienteModel, as: 'cliente' }]
+          }
+        ]
+      });
 
-      if (envios.length === 0) {
-        res.status(404).json({
-          error: 'Envío no encontrado'
-        });
+      if (!envio) {
+        res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
 
-      res.json(envios[0]);
+      const plain = envio.get({ plain: true });
+      res.json({
+        ...plain,
+        numero_seguimiento: plain.paquete?.paqu_numero_seguimiento,
+        paquete_descripcion: plain.paquete?.paqu_descripcion,
+        cliente_nombre: plain.paquete?.cliente?.clie_nombre,
+        cliente_email: plain.paquete?.cliente?.clie_email
+      });
     } catch (error) {
       console.error('Error al obtener envío:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   async getByTracking(req: any, res: Response) {
     try {
       const { numero } = req.params;
+      const envio = await this.EnvioModel.findOne({
+        where: { envi_activo: 1 },
+        include: [
+          {
+            model: this.PaqueteModel,
+            as: 'paquete',
+            where: { paqu_numero_seguimiento: numero },
+            required: true,
+            include: [{ model: this.ClienteModel, as: 'cliente' }]
+          }
+        ]
+      });
 
-      const [rows] = await this.db.execute(`
-        SELECT e.*, p.paqu_numero_seguimiento AS numero_seguimiento, p.paqu_descripcion as paquete_descripcion, c.clie_nombre as cliente_nombre, c.clie_email as cliente_email
-        FROM Envios e 
-        LEFT JOIN Paquetes p ON e.envi_paquete_id = p.paqu_id 
-        LEFT JOIN Clientes c ON p.paqu_cliente_id = c.clie_id 
-        WHERE p.paqu_numero_seguimiento = ? AND e.envi_activo = 1
-      `, [numero]);
-      const envios = rows as any[];
-
-      if (envios.length === 0) {
-        res.status(404).json({
-          error: 'Envío no encontrado'
-        });
+      if (!envio) {
+        res.status(404).json({ error: 'No se encontró envío para ese número de seguimiento' });
         return;
       }
 
-      res.json(envios[0]);
-    } catch (error) {
-      console.error('Error al obtener envío por número de seguimiento:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
+      const plain = envio.get({ plain: true });
+      res.json({
+        ...plain,
+        numero_seguimiento: plain.paquete?.paqu_numero_seguimiento,
+        paquete_descripcion: plain.paquete?.paqu_descripcion,
+        cliente_nombre: plain.paquete?.cliente?.clie_nombre,
+        cliente_email: plain.paquete?.cliente?.clie_email
       });
+    } catch (error) {
+      console.error('Error al obtener envío por seguimiento:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   async create(req: any, res: Response) {
     try {
       const { paquete_id, direccion_origen, direccion_destino, fecha_envio_estimada } = req.body;
+      const paquete = await this.PaqueteModel.findOne({
+        where: { paqu_id: paquete_id, paqu_activo: 1 },
+        attributes: ['paqu_id', 'paqu_estado']
+      });
 
-      // Verificar que el paquete existe
-      const [paqueteExists] = await this.db.execute(
-        'SELECT paqu_id AS id, paqu_estado AS estado FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1',
-        [paquete_id]
-      );
-
-      if ((paqueteExists as any[]).length === 0) {
-        res.status(400).json({
-          error: 'Paquete no encontrado'
-        });
+      if (!paquete) {
+        res.status(400).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      const paquete = (paqueteExists as any[])[0];
-      if (paquete.estado !== 'pendiente') {
-        res.status(400).json({
-          error: 'Solo se pueden crear envíos para paquetes en estado pendiente'
-        });
+      if (paquete.paqu_estado !== 'pendiente') {
+        res.status(400).json({ error: 'Solo se pueden crear envíos para paquetes en estado pendiente' });
         return;
       }
 
-      const [result] = await this.db.execute(`
-        INSERT INTO Envios (envi_paquete_id, envi_direccion_origen, envi_direccion_destino, envi_estado, envi_fecha_envio_estimada)
-        VALUES (?, ?, ?, 'en_transito', ?)
-      `, [paquete_id, direccion_origen, direccion_destino, (fecha_envio_estimada ?? null)]);
-
-      const insertId = (result as any).insertId;
-
-      // Actualizar estado del paquete a en_transito
-      await this.db.execute(
-        'UPDATE Paquetes SET paqu_estado = ?, paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?',
-        ['en_transito', paquete_id]
-      );
-
-      // Registrar en historial del paquete
-      await this.db.execute(
-        'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-        [paquete_id, 'pendiente', 'en_transito', 'Creación de envío', req.user?.id || null]
-      );
-
-      // Asociar paquete al envío en la tabla puente
+      const tx = await sequelize.transaction();
       try {
-        await this.db.execute(
-        'INSERT IGNORE INTO EnviosPaquetes (enpa_envio_id, enpa_paquete_id) VALUES (?, ?)',
-           [insertId, paquete_id]
+        const envio = await this.EnvioModel.create(
+          {
+            envi_paquete_id: paquete_id,
+            envi_direccion_origen: direccion_origen,
+            envi_direccion_destino: direccion_destino,
+            envi_estado: 'en_transito',
+            envi_fecha_envio_estimada: fecha_envio_estimada ?? null
+          },
+          { transaction: tx }
         );
-      } catch (e) {
-        // Ignorar errores no críticos de duplicado
-      }
 
-      const [created] = await this.db.execute('SELECT * FROM Envios WHERE envi_id = ?', [insertId]);
-      res.status(201).json((created as any[])[0]);
+        await this.PaqueteModel.update(
+          { paqu_estado: 'en_transito' },
+          { where: { paqu_id: paquete_id }, transaction: tx }
+        );
+
+        await this.HistorialModel.create(
+          {
+            hipa_paquete_id: paquete_id,
+            hipa_estado_anterior: 'pendiente',
+            hipa_estado_nuevo: 'en_transito',
+            hipa_comentario: 'Creación de envío',
+            hipa_usuario_id: req.user?.id || null
+          },
+          { transaction: tx }
+        );
+
+        try {
+          await this.EnviosPaquetesModel.create(
+            { enpa_envio_id: envio.envi_id, enpa_paquete_id: paquete_id },
+            { transaction: tx }
+          );
+        } catch (e) {
+          // Ignorar duplicados
+        }
+
+        await tx.commit();
+        res.status(201).json(envio.get({ plain: true }));
+      } catch (err) {
+        await tx.rollback();
+        throw err;
+      }
     } catch (error) {
       console.error('Error al crear envío:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -190,69 +216,83 @@ export class EnviosController {
     try {
       const { id } = req.params;
       const { direccion_origen, direccion_destino, fecha_envio_estimada, paquete_id } = req.body;
-
-      const [existingEnvio] = await this.db.execute('SELECT * FROM Envios WHERE envi_id = ? AND envi_activo = 1', [id]);
-      const envios = existingEnvio as any[];
-      if (envios.length === 0) {
+      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
 
-      const envio = envios[0];
-      if (envio.estado === 'entregado' || envio.estado === 'cancelado') {
+      if (envio.envi_estado === 'entregado' || envio.envi_estado === 'cancelado') {
         res.status(400).json({ error: 'No se puede editar un envío entregado o cancelado' });
         return;
       }
 
-      const conn = await this.db.getConnection();
+      const tx = await sequelize.transaction();
       try {
-        await conn.beginTransaction();
-
         // Reasignación de paquete (opcional)
-        if (paquete_id && paquete_id !== envio.paquete_id) {
-          const [newPkgRows] = await conn.execute('SELECT paqu_id AS id, paqu_estado AS estado FROM Paquetes WHERE paqu_id = ? AND paqu_activo = 1', [paquete_id]);
-          const newPkgs = newPkgRows as any[];
-          if (newPkgs.length === 0) {
+        if (paquete_id && paquete_id !== envio.envi_paquete_id) {
+          const nuevoPaquete = await this.PaqueteModel.findOne({
+            where: { paqu_id: paquete_id, paqu_activo: 1 },
+            attributes: ['paqu_id', 'paqu_estado'],
+            transaction: tx
+          });
+
+          if (!nuevoPaquete) {
             throw new Error('Paquete destino no encontrado');
           }
-          if (newPkgs[0].estado !== 'pendiente') {
+          if (nuevoPaquete.paqu_estado !== 'pendiente') {
             throw new Error('Solo se puede reasignar a un paquete en estado pendiente');
           }
 
           // Revertir paquete anterior a pendiente
-          await conn.execute('UPDATE Paquetes SET paqu_estado = "pendiente", paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [envio.paquete_id]);
-          await conn.execute('INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)', [envio.paquete_id, envio.estado, 'pendiente', 'Reasignación de envío: paquete liberado', req.user?.id || null]);
+          await this.PaqueteModel.update(
+            { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
+            { where: { paqu_id: envio.envi_paquete_id }, transaction: tx }
+          );
+          await this.HistorialModel.create(
+            {
+              hipa_paquete_id: envio.envi_paquete_id,
+              hipa_estado_anterior: envio.envi_estado,
+              hipa_estado_nuevo: 'pendiente',
+              hipa_comentario: 'Reasignación de envío: paquete liberado',
+              hipa_usuario_id: req.user?.id || null
+            },
+            { transaction: tx }
+          );
 
           // Marcar nuevo paquete en tránsito
-          await conn.execute('UPDATE Paquetes SET paqu_estado = "en_transito", paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [paquete_id]);
-          await conn.execute('INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)', [paquete_id, 'pendiente', 'en_transito', 'Reasignación de envío: paquete asignado', req.user?.id || null]);
+          await this.PaqueteModel.update(
+            { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
+            { where: { paqu_id: paquete_id }, transaction: tx }
+          );
+          await this.HistorialModel.create(
+            {
+              hipa_paquete_id: paquete_id,
+              hipa_estado_anterior: 'pendiente',
+              hipa_estado_nuevo: 'en_transito',
+              hipa_comentario: 'Reasignación de envío: paquete asignado',
+              hipa_usuario_id: req.user?.id || null
+            },
+            { transaction: tx }
+          );
+
+          envio.envi_paquete_id = paquete_id;
         }
 
-        // Construir SET dinámico para actualización de campos
-        const fields: string[] = [];
-        const values: any[] = [];
-        if (direccion_origen !== undefined) { fields.push('envi_direccion_origen = ?'); values.push(direccion_origen); }
-        if (direccion_destino !== undefined) { fields.push('envi_direccion_destino = ?'); values.push(direccion_destino); }
-        if (fecha_envio_estimada !== undefined) { fields.push('envi_fecha_envio_estimada = ?'); values.push(fecha_envio_estimada); }
-        if (paquete_id && paquete_id !== envio.paquete_id) { fields.push('envi_paquete_id = ?'); values.push(paquete_id); }
+        if (direccion_origen !== undefined) envio.envi_direccion_origen = direccion_origen;
+        if (direccion_destino !== undefined) envio.envi_direccion_destino = direccion_destino;
+        if (fecha_envio_estimada !== undefined) envio.envi_fecha_envio_estimada = fecha_envio_estimada;
+        envio.envi_updated_at = new Date();
 
-        if (fields.length > 0) {
-          fields.push('envi_updated_at = CURRENT_TIMESTAMP');
-          const sql = `UPDATE Envios SET ${fields.join(', ')} WHERE envi_id = ?`;
-          values.push(id);
-          await conn.execute(sql, values);
-        }
+        await envio.save({ transaction: tx });
+        await tx.commit();
 
-        await conn.commit();
-
-        const [updated] = await this.db.execute('SELECT * FROM Envios WHERE envi_id = ?', [id]);
-        res.json((updated as any[])[0]);
+        const updated = await this.EnvioModel.findByPk(id);
+        res.json(updated.get({ plain: true }));
       } catch (err: any) {
-        await conn.rollback();
+        await tx.rollback();
         console.error('Error al actualizar envío:', err);
         res.status(400).json({ error: err?.message || 'Error al actualizar envío' });
-      } finally {
-        conn.release();
       }
     } catch (error) {
       console.error('Error general en update de envío:', error);
@@ -264,24 +304,13 @@ export class EnviosController {
     try {
       const { id } = req.params;
       const { estado, comentario } = req.body;
-
-      // Verificar si el envío existe
-      const [existingEnvio] = await this.db.execute(
-        'SELECT * FROM Envios WHERE envi_id = ? AND envi_activo = 1',
-        [id]
-      );
-
-      if ((existingEnvio as any[]).length === 0) {
-        res.status(404).json({
-          error: 'Envío no encontrado'
-        });
+      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      if (!envio) {
+        res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
 
-      const envio = (existingEnvio as any[])[0];
-      const estadoAnterior = envio.estado as string;
-
-      // Validación de máquina de estados para envíos
+      const estadoAnterior = envio.envi_estado as string;
       const allowedTransitions: Record<string, string[]> = {
         pendiente: ['en_transito', 'cancelado'],
         en_transito: ['entregado', 'devuelto', 'cancelado'],
@@ -294,135 +323,140 @@ export class EnviosController {
         return;
       }
 
-      // Actualizar estado del envío
-      await this.db.execute(
-        'UPDATE Envios SET envi_estado = ?, envi_updated_at = CURRENT_TIMESTAMP WHERE envi_id = ?',
-        [estado, id]
-      );
+      const tx = await sequelize.transaction();
+      try {
+        envio.envi_estado = estado;
+        envio.envi_updated_at = new Date();
+        await envio.save({ transaction: tx });
 
-      // Obtener todos los paquetes asociados (principal + tabla puente)
-      const [mapRows] = await this.db.execute('SELECT enpa_paquete_id AS paquete_id FROM EnviosPaquetes WHERE enpa_envio_id = ?', [id]);
-      const mapped = (mapRows as any[]).map(r => r.paquete_id).filter(Boolean);
-      const idsSet = new Set<number>();
-      if (envio.paquete_id) idsSet.add(Number(envio.paquete_id));
-      for (const pid of mapped) idsSet.add(Number(pid));
-      const paqueteIds = Array.from(idsSet);
+        const puente = await this.EnviosPaquetesModel.findAll({
+          where: { enpa_envio_id: id },
+          attributes: ['enpa_paquete_id'],
+          transaction: tx
+        });
+        const idsSet = new Set<number>();
+        if (envio.envi_paquete_id) idsSet.add(Number(envio.envi_paquete_id));
+        for (const r of puente) idsSet.add(Number(r.enpa_paquete_id));
+        const paqueteIds = Array.from(idsSet);
 
-      let paqueteEstado: string | null = null;
-      if (estado === 'entregado') paqueteEstado = 'entregado';
-      else if (estado === 'devuelto') paqueteEstado = 'devuelto';
-      else if (estado === 'en_transito') paqueteEstado = 'en_transito';
-      else if (estado === 'cancelado') paqueteEstado = 'pendiente';
+        let paqueteEstado: string | null = null;
+        if (estado === 'entregado') paqueteEstado = 'entregado';
+        else if (estado === 'devuelto') paqueteEstado = 'devuelto';
+        else if (estado === 'en_transito') paqueteEstado = 'en_transito';
+        else if (estado === 'cancelado') paqueteEstado = 'pendiente';
 
-      if (paqueteIds.length > 0 && paqueteEstado) {
-        // Obtener estados actuales de paquetes
-        const placeholders = paqueteIds.map(() => '?').join(',');
-        const [pkgRows] = await this.db.execute(`SELECT paqu_id AS id, paqu_estado AS estado FROM Paquetes WHERE paqu_id IN (${placeholders})`, paqueteIds);
-        const currentById = new Map<number, string>((pkgRows as any[]).map((r: any) => [Number(r.id), String(r.estado)]));
-
-        for (const pid of paqueteIds) {
-          await this.db.execute('UPDATE Paquetes SET paqu_estado = ?, paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [paqueteEstado, pid]);
-          await this.db.execute(
-            'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-            [pid, currentById.get(pid) || estadoAnterior, paqueteEstado, comentario || `Envío ${estado}`, req.user?.id || null]
+        if (paqueteIds.length > 0 && paqueteEstado) {
+          const paquetes = await this.PaqueteModel.findAll({
+            where: { paqu_id: paqueteIds },
+            attributes: ['paqu_id', 'paqu_estado'],
+            transaction: tx
+          });
+          const currentById = new Map<number, string>(
+            paquetes.map((p: any) => [Number(p.paqu_id), String(p.paqu_estado)])
           );
+
+          for (const pid of paqueteIds) {
+            await this.PaqueteModel.update(
+              { paqu_estado: paqueteEstado, paqu_updated_at: new Date() },
+              { where: { paqu_id: pid }, transaction: tx }
+            );
+            await this.HistorialModel.create(
+              {
+                hipa_paquete_id: pid,
+                hipa_estado_anterior: currentById.get(pid) || estadoAnterior,
+                hipa_estado_nuevo: paqueteEstado,
+                hipa_comentario: comentario || `Envío ${estado}`,
+                hipa_usuario_id: req.user?.id || null
+              },
+              { transaction: tx }
+            );
+          }
         }
+
+        await tx.commit();
+        const updatedEnvio = await this.EnvioModel.findByPk(id);
+        res.json(updatedEnvio.get({ plain: true }));
+      } catch (err) {
+        await tx.rollback();
+        throw err;
       }
-
-      const [updatedEnvio] = await this.db.execute(
-        'SELECT * FROM Envios WHERE envi_id = ?',
-        [id]
-      );
-
-      res.json((updatedEnvio as any[])[0]);
     } catch (error) {
       console.error('Error al actualizar estado del envío:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
   async delete(req: any, res: Response) {
     try {
       const { id } = req.params;
-
-      // Verificar si el envío existe
-      const [existingEnvio] = await this.db.execute(
-        'SELECT * FROM Envios WHERE envi_id = ? AND envi_activo = 1',
-        [id]
-      );
-
-      if ((existingEnvio as any[]).length === 0) {
-        res.status(404).json({
-          error: 'Envío no encontrado'
-        });
+      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      if (!envio) {
+        res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
 
-      const envio = (existingEnvio as any[])[0];
-
-      // No permitir eliminar envíos entregados
-      if (envio.estado === 'entregado') {
-        res.status(400).json({
-          error: 'No se puede eliminar un envío entregado'
-        });
+      if (envio.envi_estado === 'entregado') {
+        res.status(400).json({ error: 'No se puede eliminar un envío entregado' });
         return;
       }
 
-      const conn = await this.db.getConnection();
+      const tx = await sequelize.transaction();
       try {
-        await conn.beginTransaction();
-
-        // Soft delete del envío
-        await conn.execute(
-          'UPDATE Envios SET envi_activo = 0, envi_updated_at = CURRENT_TIMESTAMP WHERE envi_id = ?',
-          [id]
+        await this.EnvioModel.update(
+          { envi_activo: 0, envi_updated_at: new Date() },
+          { where: { envi_id: id }, transaction: tx }
         );
 
-        // Obtener todos los paquetes asociados
-        const [mapRows] = await conn.execute('SELECT enpa_paquete_id AS paquete_id FROM EnviosPaquetes WHERE enpa_envio_id = ?', [id]);
-        const mapped = (mapRows as any[]).map(r => r.paquete_id).filter(Boolean);
+        const puente = await this.EnviosPaquetesModel.findAll({
+          where: { enpa_envio_id: id },
+          attributes: ['enpa_paquete_id'],
+          transaction: tx
+        });
         const idsSet = new Set<number>();
-        if (envio.paquete_id) idsSet.add(Number(envio.paquete_id));
-        for (const pid of mapped) idsSet.add(Number(pid));
+        if (envio.envi_paquete_id) idsSet.add(Number(envio.envi_paquete_id));
+        for (const r of puente) idsSet.add(Number(r.enpa_paquete_id));
         const paqueteIds = Array.from(idsSet);
 
-        // Revertir estado de paquetes a pendiente y registrar historial
         if (paqueteIds.length > 0) {
-          const placeholders = paqueteIds.map(() => '?').join(',');
-          const [pkgRows] = await conn.execute(`SELECT paqu_id AS id, paqu_estado AS estado FROM Paquetes WHERE paqu_id IN (${placeholders})`, paqueteIds);
-          const currentById = new Map<number, string>((pkgRows as any[]).map((r: any) => [Number(r.id), String(r.estado)]));
+          const paquetes = await this.PaqueteModel.findAll({
+            where: { paqu_id: paqueteIds },
+            attributes: ['paqu_id', 'paqu_estado'],
+            transaction: tx
+          });
+          const currentById = new Map<number, string>(
+            paquetes.map((p: any) => [Number(p.paqu_id), String(p.paqu_estado)])
+          );
 
           for (const pid of paqueteIds) {
-            await conn.execute('UPDATE Paquetes SET paqu_estado = "pendiente", paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [pid]);
-            await conn.execute(
-              'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-              [pid, currentById.get(pid) || envio.estado, 'pendiente', 'Envío eliminado (soft delete)', req.user?.id || null]
+            await this.PaqueteModel.update(
+              { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
+              { where: { paqu_id: pid }, transaction: tx }
+            );
+            await this.HistorialModel.create(
+              {
+                hipa_paquete_id: pid,
+                hipa_estado_anterior: currentById.get(pid) || envio.envi_estado,
+                hipa_estado_nuevo: 'pendiente',
+                hipa_comentario: 'Envío eliminado (soft delete)',
+                hipa_usuario_id: req.user?.id || null
+              },
+              { transaction: tx }
             );
           }
         }
 
-        // Eliminar asociaciones de la tabla puente
-        await conn.execute('DELETE FROM EnviosPaquetes WHERE enpa_envio_id = ?', [id]);
+        await this.EnviosPaquetesModel.destroy({ where: { enpa_envio_id: id }, transaction: tx });
 
-        await conn.commit();
-
-        res.json({
-          message: 'Envío eliminado exitosamente'
-        });
+        await tx.commit();
+        res.json({ message: 'Envío eliminado exitosamente' });
       } catch (err) {
-        await conn.rollback();
+        await tx.rollback();
         console.error('Error al eliminar envío:', err);
         res.status(500).json({ error: 'Error interno del servidor' });
-      } finally {
-        conn.release();
       }
     } catch (error) {
       console.error('Error al eliminar envío:', error);
-      res.status(500).json({
-        error: 'Error interno del servidor'
-      });
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
 
@@ -430,17 +464,21 @@ export class EnviosController {
   async listPackages(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const [envRows] = await this.db.execute('SELECT envi_id AS id, envi_estado AS estado FROM Envios WHERE envi_id = ? AND envi_activo = 1', [id]);
-      if ((envRows as any[]).length === 0) {
+      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 }, attributes: ['envi_id'] });
+      if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
-      const [rows] = await this.db.execute(`
-        SELECT p.* FROM EnviosPaquetes ep
-        JOIN Paquetes p ON p.paqu_id = ep.enpa_paquete_id
-        WHERE ep.enpa_envio_id = ? AND p.paqu_activo = 1
-      `, [id]);
-      res.json(rows);
+      const paquetes = await this.PaqueteModel.findAll({
+        include: [{
+          model: this.EnvioModel,
+          as: 'enviosRelacionados',
+          where: { envi_id: id },
+          through: { attributes: [] }
+        }],
+        where: { paqu_activo: 1 }
+      });
+      res.json(paquetes.map((p: any) => p.get({ plain: true })));
     } catch (error) {
       console.error('Error al listar paquetes de envío:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -456,57 +494,69 @@ export class EnviosController {
         res.status(400).json({ error: 'Debe proporcionar arreglo paquetes con IDs' });
         return;
       }
-
-      const conn = await this.db.getConnection();
+      const tx = await sequelize.transaction();
       try {
-        await conn.beginTransaction();
-        const [envRows] = await conn.execute('SELECT envi_id, envi_estado FROM Envios WHERE envi_id = ? AND envi_activo = 1', [id]);
-        const envs = envRows as any[];
-        if (envs.length === 0) {
+        const envio = await this.EnvioModel.findOne({
+          where: { envi_id: id, envi_activo: 1 },
+          attributes: ['envi_id', 'envi_estado'],
+          transaction: tx
+        });
+        if (!envio) {
           res.status(404).json({ error: 'Envío no encontrado' });
-          await conn.rollback();
-          conn.release();
+          await tx.rollback();
           return;
         }
-        const envio = envs[0];
-        if (['entregado','cancelado'].includes(envio.estado)) {
+        if (['entregado', 'cancelado'].includes(envio.envi_estado)) {
           throw new Error('No se puede modificar un envío entregado o cancelado');
         }
 
-        // Validar paquetes
-        const placeholders = paquetes.map(() => '?').join(',');
-        const [pkgRows] = await conn.execute(`SELECT paqu_id AS id, paqu_estado AS estado FROM Paquetes WHERE paqu_id IN (${placeholders}) AND paqu_activo = 1`, paquetes);
-        const found = pkgRows as any[];
-        if (found.length !== paquetes.length) {
+        const paquetesFound = await this.PaqueteModel.findAll({
+          where: { paqu_id: paquetes, paqu_activo: 1 },
+          attributes: ['paqu_id', 'paqu_estado'],
+          transaction: tx
+        });
+        if (paquetesFound.length !== paquetes.length) {
           throw new Error('Uno o más paquetes no existen o no están activos');
         }
-        for (const p of found) {
-          if (p.estado !== 'pendiente') {
+        for (const p of paquetesFound) {
+          if (p.paqu_estado !== 'pendiente') {
             throw new Error('Todos los paquetes deben estar en estado pendiente');
           }
         }
 
-        // Insertar asociaciones (ignorar duplicados)
         for (const pid of paquetes) {
-          await conn.execute('INSERT IGNORE INTO EnviosPaquetes (enpa_envio_id, enpa_paquete_id) VALUES (?, ?)', [id, pid]);
-          // Ajustar estado si el envío ya está en tránsito
-          if (envio.estado === 'en_transito') {
-            await conn.execute('UPDATE Paquetes SET paqu_estado = "en_transito", paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [pid]);
-            await conn.execute(
-              'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-              [pid, 'pendiente', 'en_transito', 'Paquete agregado al envío', req.user?.id || null]
+          try {
+            await this.EnviosPaquetesModel.create(
+              { enpa_envio_id: id, enpa_paquete_id: pid },
+              { transaction: tx }
+            );
+          } catch (e) {
+            // ignorar duplicado
+          }
+          if (envio.envi_estado === 'en_transito') {
+            await this.PaqueteModel.update(
+              { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
+              { where: { paqu_id: pid }, transaction: tx }
+            );
+            await this.HistorialModel.create(
+              {
+                hipa_paquete_id: pid,
+                hipa_estado_anterior: 'pendiente',
+                hipa_estado_nuevo: 'en_transito',
+                hipa_comentario: 'Paquete agregado al envío',
+                hipa_usuario_id: req.user?.id || null
+              },
+              { transaction: tx }
             );
           }
         }
 
-        await conn.commit();
+        await tx.commit();
         res.status(201).json({ message: 'Paquetes agregados al envío' });
       } catch (err: any) {
-        await conn.rollback();
+        await tx.rollback();
         console.error('Error al agregar paquetes al envío:', err);
         res.status(400).json({ error: err?.message || 'Error al agregar paquetes' });
-      } finally {
-        conn.release();
       }
     } catch (error) {
       console.error('Error general al agregar paquetes:', error);
@@ -518,46 +568,63 @@ export class EnviosController {
   async removePackage(req: any, res: Response) {
     try {
       const { id, paqueteId } = req.params;
-      const conn = await this.db.getConnection();
+      const tx = await sequelize.transaction();
       try {
-        await conn.beginTransaction();
-        const [envRows] = await conn.execute('SELECT envi_id AS id, envi_estado AS estado FROM Envios WHERE envi_id = ? AND envi_activo = 1', [id]);
-        if ((envRows as any[]).length === 0) {
+        const envio = await this.EnvioModel.findOne({
+          where: { envi_id: id, envi_activo: 1 },
+          attributes: ['envi_id', 'envi_estado'],
+          transaction: tx
+        });
+        if (!envio) {
           res.status(404).json({ error: 'Envío no encontrado' });
-          await conn.rollback();
-          conn.release();
+          await tx.rollback();
           return;
         }
-        const envio = (envRows as any[])[0];
-        if (['entregado','cancelado'].includes(envio.estado)) {
+        if (['entregado', 'cancelado'].includes(envio.envi_estado)) {
           throw new Error('No se puede modificar un envío entregado o cancelado');
         }
 
-        const [exists] = await conn.execute('SELECT 1 FROM EnviosPaquetes WHERE enpa_envio_id = ? AND enpa_paquete_id = ?', [id, paqueteId]);
-        if ((exists as any[]).length === 0) {
+        const relacion = await this.EnviosPaquetesModel.findOne({
+          where: { enpa_envio_id: id, enpa_paquete_id: paqueteId },
+          transaction: tx
+        });
+        if (!relacion) {
           throw new Error('El paquete no está asociado a este envío');
         }
 
-        // Obtener estado actual del paquete para historial
-        const [pkgRows] = await conn.execute('SELECT paqu_estado AS estado FROM Paquetes WHERE paqu_id = ?', [paqueteId]);
-        const prevEstado = (pkgRows as any[])[0]?.estado ?? 'en_transito';
+        const paquete = await this.PaqueteModel.findOne({
+          where: { paqu_id: paqueteId },
+          attributes: ['paqu_id', 'paqu_estado'],
+          transaction: tx
+        });
+        const prevEstado = paquete?.paqu_estado ?? 'en_transito';
 
-        await conn.execute('DELETE FROM EnviosPaquetes WHERE enpa_envio_id = ? AND enpa_paquete_id = ?', [id, paqueteId]);
-        // Revertir paquete a pendiente
-        await conn.execute('UPDATE Paquetes SET paqu_estado = "pendiente", paqu_updated_at = CURRENT_TIMESTAMP WHERE paqu_id = ?', [paqueteId]);
-        await conn.execute(
-          'INSERT INTO HistorialPaquetes (hipa_paquete_id, hipa_estado_anterior, hipa_estado_nuevo, hipa_comentario, hipa_usuario_id) VALUES (?, ?, ?, ?, ?)',
-          [paqueteId, prevEstado, 'pendiente', 'Paquete removido del envío', req.user?.id || null]
+        await this.EnviosPaquetesModel.destroy({
+          where: { enpa_envio_id: id, enpa_paquete_id: paqueteId },
+          transaction: tx
+        });
+
+        await this.PaqueteModel.update(
+          { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
+          { where: { paqu_id: paqueteId }, transaction: tx }
+        );
+        await this.HistorialModel.create(
+          {
+            hipa_paquete_id: paqueteId,
+            hipa_estado_anterior: prevEstado,
+            hipa_estado_nuevo: 'pendiente',
+            hipa_comentario: 'Paquete removido del envío',
+            hipa_usuario_id: req.user?.id || null
+          },
+          { transaction: tx }
         );
 
-        await conn.commit();
+        await tx.commit();
         res.json({ message: 'Paquete removido del envío' });
       } catch (err: any) {
-        await conn.rollback();
+        await tx.rollback();
         console.error('Error al remover paquete del envío:', err);
         res.status(400).json({ error: err?.message || 'Error al remover paquete' });
-      } finally {
-        conn.release();
       }
     } catch (error) {
       console.error('Error general al remover paquete:', error);

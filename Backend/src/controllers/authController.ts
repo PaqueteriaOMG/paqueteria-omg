@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Response } from 'express';
-import { Pool } from 'mysql2/promise';
 import { LoginRequest, LoginResponse, Usuario } from '../types';
+import { models as defaultModels } from '../db/sequelize';
 import { generateAccessToken, createRefreshToken, verifyRefreshTokenPayload, createPasswordResetToken, verifyPasswordResetToken, createEmailVerificationToken, verifyEmailVerificationToken } from '../utils/jwt';
 
 // Ventana y políticas anti-bruteforce (por email)
@@ -12,10 +12,17 @@ const LOGIN_BLOCK_MS = 30 * 60 * 1000; // bloqueo 30 minutos
 const loginAttempts = new Map<string, { count: number; first: number; blockedUntil?: number }>();
 
 export class AuthController {
-  private db: Pool;
+  private UsuarioModel: any;
+  private RefreshTokensModel: any;
+  private PasswordResetTokensModel: any;
+  private EmailVerificationTokensModel: any;
 
-  constructor(db: Pool) {
-    this.db = db;
+  constructor(_models?: any) {
+    const mdl = _models || defaultModels;
+    this.UsuarioModel = mdl.Usuario;
+    this.RefreshTokensModel = mdl.RefreshTokens;
+    this.PasswordResetTokensModel = mdl.PasswordResetTokens;
+    this.EmailVerificationTokensModel = mdl.EmailVerificationTokens;
   }
 
   async login(req: any, res: Response) {
@@ -57,19 +64,12 @@ export class AuthController {
       };
 
       // Buscar usuario por email (activo)
-      const [rows] = await this.db.execute(
-        'SELECT * FROM Usuarios WHERE usua_email = ? AND usua_activo = 1',
-        [email]
-      );
-      const users = rows as Usuario[];
-
-      if (users.length === 0) {
+      const user = await this.UsuarioModel.findOne({ where: { usua_email: email, usua_activo: 1 } });
+      if (!user) {
         incFailed();
         res.status(401).json({ error: 'Credenciales inválidas' });
         return;
       }
-
-      const user = users[0];
 
       // Verificar contraseña
       const isValidPassword = await bcrypt.compare(password, user.usua_password_hash);
@@ -92,10 +92,7 @@ export class AuthController {
       const { token: refreshToken, tokenId } = createRefreshToken(user.usua_id!);
 
       // Guardar/rotar refresh token en BD
-      await this.db.execute(
-        'INSERT INTO RefreshTokens (reto_token_id, reto_user_id, reto_revoked) VALUES (?, ?, 0) ON DUPLICATE KEY UPDATE reto_revoked = 0',
-        [tokenId, user.usua_id]
-      );
+      await this.RefreshTokensModel.create({ reto_token_id: tokenId, reto_user_id: user.usua_id, reto_revoked: 0 });
 
       // Setear cookie httpOnly con refresh token
       res.cookie('refreshToken', refreshToken, {
@@ -135,12 +132,8 @@ export class AuthController {
       }
 
       // Verificar si el usuario ya existe
-      const [existingUsers] = await this.db.execute(
-        'SELECT usua_id FROM Usuarios WHERE usua_email = ?',
-        [email]
-      );
-      
-      if ((existingUsers as any[]).length > 0) {
+      const existingUser = await this.UsuarioModel.findOne({ where: { usua_email: email } });
+      if (existingUser) {
         res.status(400).json({
           error: 'El email ya está registrado'
         });
@@ -151,16 +144,18 @@ export class AuthController {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Crear usuario INACTIVO
-      const [result] = await this.db.execute(
-        'INSERT INTO Usuarios (usua_nombre, usua_email, usua_password_hash, usua_rol, usua_activo) VALUES (?, ?, ?, ?, 0)',
-        [nombre, email, hashedPassword, rol]
-      );
-
-      const insertId = (result as any).insertId as number;
+      const created = await this.UsuarioModel.create({
+        usua_nombre: nombre,
+        usua_email: email,
+        usua_password_hash: hashedPassword,
+        usua_rol: rol,
+        usua_activo: 0
+      });
+      const insertId = created.usua_id as number;
 
       // Crear token de verificación de email y persistir
       const { tokenId, token } = createEmailVerificationToken(insertId);
-      await this.db.execute('INSERT INTO EmailVerificationTokens (evt_token_id, evt_user_id, evt_used) VALUES (?, ?, 0)', [tokenId, insertId]);
+      await this.EmailVerificationTokensModel.create({ evt_token_id: tokenId, evt_user_id: insertId, evt_used: 0 });
 
       // Nota: en producción se debe enviar el token por email. En desarrollo lo devolvemos para pruebas.
       const isProd = process.env.NODE_ENV === 'production';
@@ -190,15 +185,8 @@ export class AuthController {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-      
-      // Verificar que el usuario aún existe y está activo
-      const [rows] = await this.db.execute(
-        'SELECT usua_id, usua_nombre, usua_email, usua_rol FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
-        [decoded.id]
-      );
-      const users = rows as Usuario[];
-
-      if (users.length === 0) {
+      const user = await this.UsuarioModel.findOne({ where: { usua_id: decoded.id, usua_activo: 1 } });
+      if (!user) {
         res.status(401).json({
           error: 'Usuario no válido'
         });
@@ -206,7 +194,7 @@ export class AuthController {
       }
 
       res.json({
-        user: users[0],
+        user,
         valid: true
       });
     } catch (error) {
@@ -226,7 +214,7 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-      await this.db.execute('UPDATE RefreshTokens SET reto_revoked = 1 WHERE reto_token_id = ?', [payload.tokenId]);
+      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
 
       res.clearCookie('refreshToken');
       res.json({ message: 'Sesión cerrada correctamente' });
@@ -245,38 +233,28 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-
-      // Comprobar que el token existe y no está revocado
-      const [rows] = await this.db.execute('SELECT reto_revoked AS revoked, reto_user_id AS user_id FROM RefreshTokens WHERE reto_token_id = ?', [payload.tokenId]);
-      const tokens = rows as Array<{ revoked: number; user_id: number }>;
-      if (tokens.length === 0 || tokens[0].revoked) {
+      const tokenRow = await this.RefreshTokensModel.findOne({ where: { reto_token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.reto_revoked) {
         res.status(401).json({ error: 'Token inválido o revocado' });
         return;
       }
-
-      const userId = tokens[0].user_id;
-
-      // Verificar que el usuario existe y está activo; obtener email y rol
-      const [userRows] = await this.db.execute(
-        'SELECT usua_email, usua_rol FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
-        [userId]
-      );
-      const users = userRows as Array<{ usua_email: string; usua_rol: string }>;
-      if (users.length === 0) {
+      const userId = tokenRow.reto_user_id;
+      const user = await this.UsuarioModel.findOne({ attributes: ['usua_email', 'usua_rol'], where: { usua_id: userId, usua_activo: 1 } });
+      if (!user) {
         // Usuario inválido: revocar token actual y limpiar cookie
-        await this.db.execute('UPDATE RefreshTokens SET reto_revoked = 1 WHERE reto_token_id = ?', [payload.tokenId]);
+        await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
         try { res.clearCookie('refreshToken', { path: '/' }); } catch {}
         res.status(401).json({ error: 'Usuario no válido o inactivo' });
         return;
       }
 
-      const { usua_email, usua_rol } = users[0];
+      const { usua_email, usua_rol } = user.dataValues as { usua_email: string; usua_rol: string };
 
       // Revocar token actual y emitir uno nuevo (rotación)
-      await this.db.execute('UPDATE RefreshTokens SET reto_revoked = 1 WHERE reto_token_id = ?', [payload.tokenId]);
+      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_token_id: payload.tokenId } });
 
       const { token: newRefreshToken, tokenId: newTokenId } = createRefreshToken(userId);
-      await this.db.execute('INSERT INTO RefreshTokens (reto_token_id, reto_user_id, reto_revoked) VALUES (?, ?, 0)', [newTokenId, userId]);
+      await this.RefreshTokensModel.create({ reto_token_id: newTokenId, reto_user_id: userId, reto_revoked: 0 });
 
       // Setear nueva cookie
       res.cookie('refreshToken', newRefreshToken, {
@@ -306,12 +284,11 @@ export class AuthController {
         return;
       }
 
-      const [rows] = await this.db.execute('SELECT usua_id, usua_activo FROM Usuarios WHERE usua_email = ?', [email]);
-      const users = rows as Array<{ usua_id: number; usua_activo: number }>;
-      if (users.length > 0 && users[0].usua_activo === 1) {
-        const userId = users[0].usua_id;
+      const user = await this.UsuarioModel.findOne({ attributes: ['usua_id', 'usua_activo'], where: { usua_email: email } });
+      if (user && user.usua_activo === 1) {
+        const userId = user.usua_id;
         const { tokenId, token } = createPasswordResetToken(userId);
-        await this.db.execute('INSERT INTO PasswordResetTokens (token_id, user_id, used) VALUES (?, ?, 0)', [tokenId, userId]);
+        await this.PasswordResetTokensModel.create({ prt_token_id: tokenId, prt_user_id: userId, prt_used: 0 });
         if (process.env.NODE_ENV !== 'production') {
           console.log(`[PasswordReset] Token para ${email}:`, token);
         }
@@ -341,21 +318,16 @@ export class AuthController {
       }
 
       const payload = verifyPasswordResetToken(token);
-      const [rows] = await this.db.execute('SELECT prt_used AS used, prt_user_id AS user_id FROM PasswordResetTokens WHERE prt_token_id = ?', [payload.tokenId]);
-      const tokens = rows as Array<{ used: number; user_id: number }>;
-      if (tokens.length === 0 || tokens[0].used === 1) {
+      const tokenRow = await this.PasswordResetTokensModel.findOne({ where: { prt_token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.prt_used === 1) {
         res.status(400).json({ error: 'Token inválido o ya utilizado' });
         return;
       }
-
-      const userId = tokens[0].user_id;
+      const userId = tokenRow.prt_user_id;
       const hashed = await bcrypt.hash(newPassword, 10);
-
-      await this.db.execute('UPDATE Usuarios SET usua_password_hash = ? WHERE usua_id = ?', [hashed, userId]);
-      await this.db.execute('UPDATE PasswordResetTokens SET prt_used = 1 WHERE prt_token_id = ?', [payload.tokenId]);
-
-      // Revocar todos los refresh tokens activos del usuario
-      await this.db.execute('UPDATE RefreshTokens SET reto_revoked = 1 WHERE reto_user_id = ? AND reto_revoked = 0', [userId]);
+      await this.UsuarioModel.update({ usua_password_hash: hashed }, { where: { usua_id: userId } });
+      await this.PasswordResetTokensModel.update({ prt_used: 1 }, { where: { prt_token_id: payload.tokenId } });
+      await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_user_id: userId, reto_revoked: 0 } });
 
       res.json({ message: 'Contraseña actualizada. Vuelve a iniciar sesión.' });
     } catch (error) {
@@ -373,16 +345,14 @@ export class AuthController {
       }
 
       const payload = verifyEmailVerificationToken(token);
-      const [rows] = await this.db.execute('SELECT evt_used AS used, evt_user_id AS user_id FROM EmailVerificationTokens WHERE evt_token_id = ?', [payload.tokenId]);
-      const tokens = rows as Array<{ used: number; user_id: number }>;
-      if (tokens.length === 0 || tokens[0].used === 1) {
+      const tokenRow = await this.EmailVerificationTokensModel.findOne({ where: { evt_token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.evt_used === 1) {
         res.status(400).json({ error: 'Token inválido o ya utilizado' });
         return;
       }
-
-      const userId = tokens[0].user_id;
-      await this.db.execute('UPDATE Usuarios SET usua_activo = 1 WHERE usua_id = ?', [userId]);
-      await this.db.execute('UPDATE EmailVerificationTokens SET evt_used = 1 WHERE evt_token_id = ?', [payload.tokenId]);
+      const userId = tokenRow.evt_user_id;
+      await this.UsuarioModel.update({ usua_activo: 1 }, { where: { usua_id: userId } });
+      await this.EmailVerificationTokensModel.update({ evt_used: 1 }, { where: { evt_token_id: payload.tokenId } });
 
       res.json({ message: 'Email verificado. Ya puedes iniciar sesión.' });
     } catch (error) {

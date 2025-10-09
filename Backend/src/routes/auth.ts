@@ -12,7 +12,7 @@
  */
 import { Router } from "express";
 import { body, validationResult, query } from "express-validator";
-import { Pool } from "mysql2/promise";
+import { models as defaultModels } from "../db/sequelize";
 import { AuthController } from "../controllers/authController";
 import { authenticateToken } from "../middleware/auth";
 import { verifyRefreshTokenPayload } from "../utils/jwt";
@@ -89,9 +89,14 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: admin@paqueteria.com
  *               password:
  *                 type: string
  *                 format: password
+ *                 example: admin123
+ *           example:
+ *             email: admin@paqueteria.com
+ *             password: admin123
  *     responses:
  *       200:
  *         description: Login exitoso
@@ -120,8 +125,8 @@ router.post(
   loginValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.login(req, res);
   }
 );
@@ -169,8 +174,8 @@ router.post(
   registerValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.register(req, res);
   }
 );
@@ -196,29 +201,29 @@ router.get("/check-access", authenticateToken, (req, res) => {
 
 // Verificar token mediante controlador (/verify backward compat)
 router.get("/verify", async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const authController = new AuthController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const authController = new AuthController(mdl);
   await authController.verify(req, res);
 });
 
 // Logout
 router.post("/logout", async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const authController = new AuthController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const authController = new AuthController(mdl);
   await authController.logout(req, res);
 });
 
 // Refresh
 router.post("/refresh", async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const authController = new AuthController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const authController = new AuthController(mdl);
   await authController.refresh(req, res);
 });
 
 // Check refresh token (validez sin rotación)
 router.get("/check", async (req: any, res: any) => {
   try {
-    const db = req.app.locals.db as Pool;
+    const mdl = req.app.locals.models || defaultModels;
     const refreshToken = req.cookies?.refreshToken;
     if (!refreshToken) {
       res
@@ -228,13 +233,8 @@ router.get("/check", async (req: any, res: any) => {
     }
 
     const payload = verifyRefreshTokenPayload(refreshToken);
-
-    const [rows] = await db.execute(
-      "SELECT reto_revoked AS revoked FROM RefreshTokens WHERE reto_token_id = ?",
-      [payload.tokenId]
-    );
-    const tokens = rows as Array<{ revoked: number }>;
-    if (tokens.length === 0 || tokens[0].revoked) {
+    const tokenRow = await mdl.RefreshTokens.findOne({ where: { reto_token_id: payload.tokenId } });
+    if (!tokenRow || tokenRow.reto_revoked) {
       res
         .status(401)
         .json({ success: false, error: "Token inválido o revocado" });
@@ -253,8 +253,8 @@ router.post(
   forgotValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.forgotPassword(req, res);
   }
 );
@@ -265,8 +265,8 @@ router.post(
   resetValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.resetPassword(req, res);
   }
 );
@@ -277,8 +277,8 @@ router.get(
   verifyEmailValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.verifyEmail(req, res);
   }
 );
@@ -287,8 +287,8 @@ router.post(
   verifyEmailValidation,
   validateAndPassToController,
   async (req: any, res: any) => {
-    const db = req.app.locals.db as Pool;
-    const authController = new AuthController(db);
+    const mdl = req.app.locals.models || defaultModels;
+    const authController = new AuthController(mdl);
     await authController.verifyEmail(req, res);
   }
 );

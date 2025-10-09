@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, validationResult, query } from 'express-validator';
-import { Pool } from 'mysql2/promise';
+import { models as defaultModels } from '../db/sequelize';
 import { Usuario, ApiResponse, PaginatedResponse, PaginationParams, AuthRequest } from '../types';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 import { UsuariosController } from '../controllers/usuariosController';
@@ -91,8 +91,8 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         description: Acceso prohibido
  */
 router.get('/', authorizeRoles('admin'), paginationValidation, async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.getAll(req, res);
 });
 
@@ -124,8 +124,8 @@ router.get('/', authorizeRoles('admin'), paginationValidation, async (req: any, 
  *         description: Usuario no encontrado
  */
 router.get('/:id', async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.getById(req, res);
 });
 
@@ -172,8 +172,8 @@ router.get('/:id', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin'), usuarioCreateValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.create(req, res);
 });
 
@@ -228,8 +228,8 @@ router.post('/', authorizeRoles('admin'), usuarioCreateValidation, validateAndPa
  *         description: Usuario no encontrado
  */
 router.put('/:id', usuarioValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.update(req, res);
 });
 
@@ -282,8 +282,8 @@ router.patch('/:id/password', [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/)
     .withMessage('La nueva contraseña debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas, números y un carácter especial')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.changePassword(req, res);
 });
 
@@ -314,8 +314,8 @@ router.patch('/:id/password', [
  *         description: Usuario no encontrado
  */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.delete(req, res);
 });
 
@@ -335,8 +335,8 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
  *         description: No autorizado
  */
 router.get('/me/profile', async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.getProfile(req, res);
 });
 
@@ -373,8 +373,8 @@ router.patch('/me/profile', [
   body('nombre').optional().isString().notEmpty().withMessage('Nombre inválido'),
   body('email').optional().isEmail().withMessage('Email inválido')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.updateProfile(req, res);
 });
 
@@ -405,8 +405,8 @@ router.patch('/me/profile', [
  *         description: Usuario no encontrado
  */
 router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.restore(req, res);
 });
 
@@ -437,8 +437,8 @@ router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any)
  *         description: Usuario no encontrado
  */
 router.patch('/:id/activate', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db: Pool = req.app.locals.db;
-  const usuariosController = new UsuariosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const usuariosController = new UsuariosController(mdl);
   await usuariosController.activate(req, res);
 });
 

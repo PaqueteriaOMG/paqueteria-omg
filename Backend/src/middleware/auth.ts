@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../types';
-import { Pool } from 'mysql2/promise';
+import { models } from '../db/sequelize';
 
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
   const authHeader = req.headers['authorization'];
@@ -19,26 +19,23 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     }
 
     try {
-      const db = (req as any).app?.locals?.db as Pool | undefined;
-      if (!db) {
-        res.status(500).json({ success: false, error: 'Base de datos no disponible' });
+      const Usuario = (req as any).app?.locals?.models?.Usuario || models.Usuario;
+      if (!Usuario) {
+        res.status(500).json({ success: false, error: 'Modelos no disponibles' });
         return;
       }
 
-      // Validar que el usuario existe y está activo
-      const [rows] = await db.execute(
-        'SELECT usua_id, usua_email, usua_rol FROM Usuarios WHERE usua_id = ? AND usua_activo = 1',
-        [decoded.id]
-      );
-      const users = rows as Array<{ usua_id: number; usua_email: string; usua_rol: string }>;
+      const user = await Usuario.findOne({
+        where: { usua_id: decoded.id, usua_activo: 1 },
+        attributes: ['usua_id', 'usua_email', 'usua_rol']
+      });
 
-      if (users.length === 0) {
+      if (!user) {
         res.status(401).json({ success: false, error: 'Usuario no válido o inactivo' });
         return;
       }
 
-      const u = users[0];
-      req.user = { id: u.usua_id, email: u.usua_email, rol: u.usua_rol } as any;
+      req.user = { id: user.usua_id, email: user.usua_email, rol: user.usua_rol } as any;
       next();
     } catch (e) {
       console.error('Error autenticando token:', e);

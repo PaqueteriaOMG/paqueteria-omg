@@ -65,10 +65,51 @@ export interface Usuario {
  *         - clie_telefono
  *         - clie_direccion
  *         - clie_tipo_cliente
+  *     ClienteUpdateInput:
+  *       type: object
+  *       description: Cuerpo esperado para actualizar un cliente (sin prefijo clie_)
+  *       properties:
+  *         id:
+  *           type: integer
+  *         nombre:
+  *           type: string
+  *         apellido:
+  *           type: string
+  *         ciudad:
+  *           type: string
+  *         codigo_postal:
+  *           type: string
+  *         email:
+  *           type: string
+  *           format: email
+  *         telefono:
+  *           type: string
+  *         direccion:
+  *           type: string
+  *         tipo_cliente:
+  *           type: string
+  *           enum: [remitente, destinatario, ambos]
+  *           default: remitente
+  *         activo:
+  *           type: boolean
+  *           default: true
+  *       example:
+  *         nombre: "Juan Pérez"
+  *         apellido: "Pérez"
+  *         ciudad: "Buenos Aires"
+  *         codigo_postal: "1000"
+  *         email: "juan@example.com"
+  *         telefono: "555-1234"
+  *         direccion: "Calle Falsa 123"
+  *         tipo_cliente: "remitente"
+  *         activo: true
  */
 export interface Cliente {
   clie_id?: number;
   clie_nombre: string;
+  clie_apellido: string;
+  clie_ciudad: string;
+  clie_codigo_postal: string;
   clie_email: string;
   clie_telefono: string;
   clie_direccion: string;

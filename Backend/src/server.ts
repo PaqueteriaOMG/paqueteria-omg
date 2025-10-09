@@ -1,7 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mysql from 'mysql2/promise';
+import { sequelize, initModels, models } from './db/sequelize';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -166,24 +166,15 @@ app.get('/api/metrics', (req: Request, res: Response) => {
   res.json({ success: true, data: { total_requests: metrics.totalRequests, avg_ms: avg, per_route: perRoute } });
 });
 
-// Configuración de la base de datos
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'paqueteria_app',
-  port: parseInt(process.env.DB_PORT || '3306', 10)
+// Inicializar Sequelize y modelos
+initModels();
+app.locals.sequelize = sequelize;
+app.locals.models = models;
+// Adaptador para compatibilidad con controladores antiguos (mysql2/promise)
+app.locals.db = {
+  execute: (sql: string, params?: any[]) => sequelize.query(sql, { replacements: params }),
+  query: (sql: string, params?: any[]) => sequelize.query(sql, params ? { replacements: params } : undefined)
 };
-
-// Crear pool de conexiones
-const pool = mysql.createPool({
-  ...dbConfig,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
-
-app.locals.db = pool;
 
 
 
@@ -217,7 +208,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
   };
   let db = { connected: false as boolean, error: undefined as string | undefined };
   try {
-    await app.locals.db.query('SELECT 1');
+    await sequelize.authenticate();
     db.connected = true;
   } catch (e: any) {
     db.connected = false;
@@ -238,7 +229,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
 app.get('/api/readiness', async (req: Request, res: Response) => {
   res.locals.skipEnvelope = true;
   try {
-    await app.locals.db.query('SELECT 1');
+    await sequelize.authenticate();
     res.json({ status: 'READY' });
   } catch (e: any) {
     const errMsg = process.env.NODE_ENV === 'development' ? (e?.message || 'DB error') : undefined;
@@ -267,8 +258,8 @@ setupSwagger(app);
 // Iniciar servidor
 app.listen(PORT, async () => {
   try {
-    await pool.getConnection();
-    console.log('Conexión a la base de datos establecida');
+    await sequelize.authenticate();
+    console.log('Conexión a la base de datos establecida (Sequelize)');
   } catch (error: any) {
     console.warn('No se pudo establecer conexión inicial con la base de datos:', error?.message);
   }
@@ -279,7 +270,7 @@ app.listen(PORT, async () => {
 // Manejo de cierre
 process.on('SIGINT', async () => {
   console.log('\nCerrando servidor...');
-  await pool.end();
+  await sequelize.close();
   console.log('Conexiones de base de datos cerradas');
   process.exit(0);
 });

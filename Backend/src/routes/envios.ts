@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, validationResult, query, param } from 'express-validator';
 import { Pool } from 'mysql2/promise';
+import { models as defaultModels } from '../db/sequelize';
 import { EnviosController } from '../controllers/enviosController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
@@ -66,6 +67,7 @@ const generateShipmentNumber = (): string => {
  *         schema:
  *           type: integer
  *           minimum: 1
+ *           default: 1
  *         description: Número de página
  *       - in: query
  *         name: limit
@@ -73,18 +75,21 @@ const generateShipmentNumber = (): string => {
  *           type: integer
  *           minimum: 1
  *           maximum: 100
+ *           default: 10
  *         description: Límite de resultados por página
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
  *           enum: [numero_envio, fecha_envio_estimada, estado]
+ *           default: numero_envio
  *         description: Campo para ordenar
  *       - in: query
  *         name: sortOrder
  *         schema:
  *           type: string
  *           enum: [asc, desc]
+ *           default: desc
  *         description: Orden de clasificación
  *     responses:
  *       200:
@@ -93,8 +98,8 @@ const generateShipmentNumber = (): string => {
  *         description: No autorizado
  */
 router.get('/', paginationValidation, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.getAll(req, res);
 });
 
@@ -123,8 +128,8 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
  *         description: Envío no encontrado
  */
 router.get('/:id', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.getById(req, res);
 });
 
@@ -151,8 +156,8 @@ router.get('/:id', async (req: any, res: any) => {
  *         description: Envío no encontrado
  */
 router.get('/tracking/:numero', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.getByTracking(req, res);
 });
 
@@ -185,6 +190,11 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *               fecha_envio_estimada:
  *                 type: string
  *                 format: date-time
+ *           example:
+ *             paquete_id: 1
+ *             direccion_origen: "Av. Siempre Viva 742, Springfield"
+ *             direccion_destino: "Calle Falsa 123, Buenos Aires"
+ *             fecha_envio_estimada: "2025-10-12T15:00:00Z"
  *     responses:
  *       201:
  *         description: Envío creado correctamente
@@ -196,8 +206,8 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin', 'empleado'), envioValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.create(req, res);
 });
 
@@ -233,6 +243,11 @@ router.post('/', authorizeRoles('admin', 'empleado'), envioValidation, validateA
  *                 format: date-time
  *               paquete_id:
  *                 type: integer
+ *           example:
+ *             direccion_origen: "Av. Siempre Viva 742, Springfield"
+ *             direccion_destino: "Calle Falsa 123, Buenos Aires"
+ *             fecha_envio_estimada: "2025-10-15T10:30:00Z"
+ *             paquete_id: 1
  *     responses:
  *       200:
  *         description: Envío actualizado correctamente
@@ -251,8 +266,8 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), [
   body('fecha_envio_estimada').optional().isISO8601().withMessage('fecha_envio_estimada inválida'),
   body('paquete_id').optional().isInt({ min: 1 }).withMessage('paquete_id inválido')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.update(req, res);
 });
 
@@ -287,6 +302,9 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), [
  *               fecha_entrega_real:
  *                 type: string
  *                 format: date-time
+ *           example:
+ *             estado: "en_transito"
+ *             fecha_entrega_real: "2025-10-18T14:45:00Z"
  *     responses:
  *       200:
  *         description: Estado del envío actualizado correctamente
@@ -303,8 +321,8 @@ router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
   body('estado').isIn(['pendiente', 'en_transito', 'entregado', 'devuelto', 'cancelado']).withMessage('Estado inválido'),
   body('fecha_entrega_real').optional().isISO8601().withMessage('Fecha de entrega real inválida')
 ], async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.updateStatus(req, res);
 });
 
@@ -335,8 +353,8 @@ router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
  *         description: Envío no encontrado
  */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.delete(req, res);
 });
 
@@ -368,8 +386,8 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
  *         description: Envío no encontrado
  */
 router.get('/:id/paquetes', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.listPackages(req, res);
 });
 
@@ -403,6 +421,8 @@ router.get('/:id/paquetes', authorizeRoles('admin', 'empleado'), async (req: any
  *                 items:
  *                   type: integer
  *                 minItems: 1
+ *           example:
+ *             paquetes: [101, 102, 103]
  *     responses:
  *       200:
  *         description: Paquetes agregados correctamente
@@ -419,8 +439,8 @@ router.post('/:id/paquetes', authorizeRoles('admin', 'empleado'), [
   body('paquetes').isArray({ min: 1 }).withMessage('Debe enviar un arreglo "paquetes" con al menos 1 ID'),
   body('paquetes.*').isInt({ min: 1 }).withMessage('Cada paquete debe ser un ID válido')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.addPackages(req, res);
 });
 
@@ -462,8 +482,8 @@ router.delete('/:id/paquetes/:paqueteId', authorizeRoles('admin', 'empleado'), [
   param('id').isInt({ min: 1 }).withMessage('Envío inválido'),
   param('paqueteId').isInt({ min: 1 }).withMessage('Paquete inválido')
 ], validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const enviosController = new EnviosController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
   await enviosController.removePackage(req, res);
 });
 

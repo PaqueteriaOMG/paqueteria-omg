@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Pool } from 'mysql2/promise';
+import { models as defaultModels } from '../db/sequelize';
 import { ClientesController } from '../controllers/clientesController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 
@@ -56,8 +56,8 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         description: No autorizado
  */
 router.get('/', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.getAll(req, res);
 });
 
@@ -86,8 +86,8 @@ router.get('/', async (req: any, res: any) => {
  *         description: No autorizado
  */
 router.get('/:id', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.getById(req, res);
 });
 
@@ -141,8 +141,8 @@ router.get('/:id', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin', 'empleado'), clienteValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.create(req, res);
 });
 
@@ -167,7 +167,7 @@ router.post('/', authorizeRoles('admin', 'empleado'), clienteValidation, validat
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/Cliente'
+ *             $ref: '#/components/schemas/ClienteUpdateInput'
  *     responses:
  *       200:
  *         description: Cliente actualizado correctamente
@@ -181,8 +181,8 @@ router.post('/', authorizeRoles('admin', 'empleado'), clienteValidation, validat
  *         description: Cliente no encontrado
  */
 router.put('/:id', authorizeRoles('admin', 'empleado'), clienteValidation, validateAndPassToController, async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.update(req, res);
 });
 
@@ -213,8 +213,8 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), clienteValidation, valid
  *         description: Cliente no encontrado
  */
 router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.delete(req, res);
 });
 
@@ -245,8 +245,8 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
  *         description: Cliente no encontrado
  */
 router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.restore(req, res);
 });
 
@@ -273,8 +273,8 @@ router.patch('/:id/restore', authorizeRoles('admin'), async (req: any, res: any)
  *         description: No autorizado
  */
 router.get('/search/:term', async (req: any, res: any) => {
-  const db = req.app.locals.db as Pool;
-  const clientesController = new ClientesController(db);
+  const mdl = req.app.locals.models || defaultModels;
+  const clientesController = new ClientesController(mdl);
   await clientesController.search(req, res);
 });
 
