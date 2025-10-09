@@ -631,4 +631,81 @@ export class EnviosController {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   }
+
+  async restore(req: any, res: Response) {
+    try {
+      const { id } = req.params;
+      
+      const envio = await this.EnvioModel.findOne({ 
+        where: { envi_id: id, envi_activo: 0 }
+      });
+
+      if (!envio) {
+        res.status(404).json({ 
+          success: false,
+          error: 'Envío eliminado no encontrado' 
+        });
+        return;
+      }
+
+      const tx = await sequelize.transaction();
+      try {
+        envio.envi_activo = 1;
+        envio.envi_updated_at = new Date();
+        await envio.save({ transaction: tx });
+
+        // Restaurar relaciones con paquetes
+        const paquetes = await this.PaqueteModel.findAll({
+          include: [{
+            model: this.EnvioModel,
+            as: 'enviosRelacionados',
+            where: { envi_id: id },
+            through: { attributes: [] }
+          }],
+          attributes: ['paqu_id', 'paqu_estado'],
+          transaction: tx
+        });
+
+        // Actualizar estado de los paquetes a en_transito
+        for (const paquete of paquetes) {
+          await this.PaqueteModel.update(
+            { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
+            { where: { paqu_id: paquete.paqu_id }, transaction: tx }
+          );
+
+          await this.HistorialModel.create({
+            hipa_paquete_id: paquete.paqu_id,
+            hipa_estado_anterior: paquete.paqu_estado,
+            hipa_estado_nuevo: 'en_transito',
+            hipa_comentario: 'Envío restaurado',
+            hipa_usuario_id: req.user?.id || null
+          }, { transaction: tx });
+        }
+
+        await tx.commit();
+
+        const restored = await this.EnvioModel.findByPk(id, {
+          include: [{
+            model: this.PaqueteModel,
+            as: 'paquetes',
+            through: { attributes: [] }
+          }]
+        });
+
+        res.json({
+          success: true,
+          data: restored.get({ plain: true })
+        });
+      } catch (err) {
+        await tx.rollback();
+        throw err;
+      }
+    } catch (error) {
+      console.error('Error al restaurar envío:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error interno del servidor' 
+      });
+    }
+  }
 }

@@ -95,12 +95,12 @@ export class PaquetesController {
 
       const plain = paquete.get({ plain: true });
       res.json({
-        ...plain,
-        id: plain.paqu_id,
-        cliente_nombre: plain.cliente?.clie_nombre,
-        cliente_email: plain.cliente?.clie_email,
-        cliente_telefono: plain.cliente?.clie_telefono,
-        historial: historial.map((h: any) => h.get({ plain: true }))
+        success: true,
+        data: {
+          ...plain,
+          id: plain.paqu_id,
+          historial: historial.map((h: any) => h.get({ plain: true }))
+        }
       });
     } catch (error) {
       console.error('Error al obtener paquete:', error);
@@ -134,12 +134,12 @@ export class PaquetesController {
 
       const plain = paquete.get({ plain: true });
       res.json({
-        ...plain,
-        id: plain.paqu_id,
-        cliente_nombre: plain.cliente?.clie_nombre,
-        cliente_email: plain.cliente?.clie_email,
-        cliente_telefono: plain.cliente?.clie_telefono,
-        historial: historial.map((h: any) => h.get({ plain: true }))
+        success: true,
+        data: {
+          ...plain,
+          id: plain.paqu_id,
+          historial: historial.map((h: any) => h.get({ plain: true }))
+        }
       });
     } catch (error) {
       console.error('Error al obtener paquete por número de seguimiento:', error);
@@ -231,27 +231,46 @@ export class PaquetesController {
   async update(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const { descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
+      const updateData = req.body;
 
-      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PaqueteModel.findOne({
+        where: { paqu_id: id, paqu_activo: 1 },
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+      });
+
       if (!paquete) {
-        res.status(404).json({ error: 'Paquete no encontrado' });
+        res.status(404).json({ 
+          success: false,
+          error: 'Paquete no encontrado' 
+        });
         return;
       }
 
       if (paquete.paqu_estado === 'entregado') {
-        res.status(400).json({ error: 'No se puede actualizar un paquete entregado' });
+        res.status(400).json({ 
+          success: false,
+          error: 'No se puede actualizar un paquete entregado' 
+        });
         return;
       }
 
-      if (descripcion !== undefined) paquete.paqu_descripcion = descripcion;
-      if (peso !== undefined) paquete.paqu_peso = peso;
-      if (dimensiones !== undefined) paquete.paqu_dimensiones = dimensiones;
-      if (valor_declarado !== undefined) paquete.paqu_valor_declarado = valor_declarado;
-      if (direccion_origen !== undefined) paquete.paqu_direccion_origen = direccion_origen;
-      if (direccion_destino !== undefined) paquete.paqu_direccion_destino = direccion_destino;
-      paquete.paqu_updated_at = new Date();
+      // Actualizar solo los campos proporcionados
+      const camposActualizables = [
+        'descripcion',
+        'peso',
+        'dimensiones',
+        'valor_declarado',
+        'direccion_origen',
+        'direccion_destino'
+      ];
 
+      camposActualizables.forEach(campo => {
+        if (updateData[campo] !== undefined) {
+          paquete[`paqu_${campo}`] = updateData[campo];
+        }
+      });
+
+      paquete.paqu_updated_at = new Date();
       await paquete.save();
 
       await this.HistorialModel.create({
@@ -262,8 +281,20 @@ export class PaquetesController {
         hipa_usuario_id: req.user?.id || null
       });
 
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: id },
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
+
       const plain = paquete.get({ plain: true });
-      res.json({ ...plain, id: plain.paqu_id } as Paquete);
+      res.json({ 
+        success: true,
+        data: {
+          ...plain,
+          id: plain.paqu_id,
+          historial: historial.map((h: any) => h.get({ plain: true }))
+        }
+      });
     } catch (error) {
       console.error('Error al actualizar paquete:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -553,6 +584,58 @@ export class PaquetesController {
     } catch (error) {
       console.error('Error en rastreo público:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
+  async restore(req: any, res: Response) {
+    try {
+      const { id } = req.params;
+      
+      const paquete = await this.PaqueteModel.findOne({ 
+        where: { paqu_id: id, paqu_activo: 0 },
+        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+      });
+
+      if (!paquete) {
+        res.status(404).json({ 
+          success: false,
+          error: 'Paquete eliminado no encontrado' 
+        });
+        return;
+      }
+
+      paquete.paqu_activo = 1;
+      paquete.paqu_updated_at = new Date();
+      await paquete.save();
+
+      await this.HistorialModel.create({
+        hipa_paquete_id: paquete.paqu_id,
+        hipa_estado_anterior: paquete.paqu_estado,
+        hipa_estado_nuevo: paquete.paqu_estado,
+        hipa_comentario: 'Paquete restaurado',
+        hipa_usuario_id: req.user?.id || null
+      });
+
+      const historial = await this.HistorialModel.findAll({
+        where: { hipa_paquete_id: id },
+        order: [['hipa_fecha_cambio', 'DESC']]
+      });
+
+      const plain = paquete.get({ plain: true });
+      res.json({
+        success: true,
+        data: {
+          ...plain,
+          id: plain.paqu_id,
+          historial: historial.map((h: any) => h.get({ plain: true }))
+        }
+      });
+    } catch (error) {
+      console.error('Error al restaurar paquete:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error interno del servidor' 
+      });
     }
   }
 }

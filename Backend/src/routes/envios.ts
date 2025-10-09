@@ -358,6 +358,58 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   await enviosController.delete(req, res);
 });
 
+/**
+ * @swagger
+ * /api/envios/{id}/restore:
+ *   post:
+ *     summary: Restaurar un envío eliminado
+ *     tags: [Envios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del envío a restaurar
+ *     responses:
+ *       200:
+ *         description: Envío restaurado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     envi_id:
+ *                       type: integer
+ *                     envi_estado:
+ *                       type: string
+ *                     paquetes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Envío eliminado no encontrado
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.post('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
+  const mdl = req.app.locals.models || defaultModels;
+  const enviosController = new EnviosController(mdl);
+  await enviosController.restore(req, res);
+});
+
 // Gestión de paquetes asociados al envío
 // Listar paquetes del envío
 /**

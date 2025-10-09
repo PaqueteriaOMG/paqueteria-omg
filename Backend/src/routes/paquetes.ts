@@ -37,11 +37,14 @@ router.use(authenticateToken);
 
 // Validaciones
 const paqueteValidation = [
+  body('cliente_id').isInt({ min: 1 }).withMessage('El ID del cliente es requerido y debe ser válido'),
   body('descripcion').notEmpty().withMessage('La descripción es requerida'),
   body('peso').isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0'),
   body('dimensiones').notEmpty().withMessage('Las dimensiones son requeridas'),
   body('valor_declarado').isFloat({ min: 0 }).withMessage('El valor declarado debe ser mayor o igual a 0'),
-  body('fragil').isBoolean().withMessage('El campo frágil debe ser verdadero o falso')
+  body('direccion_origen').notEmpty().withMessage('La dirección de origen es requerida'),
+  body('direccion_destino').notEmpty().withMessage('La dirección de destino es requerida'),
+  body('fragil').isBoolean().withMessage('El campo frágil debe ser un booleano')
 ];
 
 const paginationValidation = [
@@ -200,12 +203,19 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *           schema:
  *             type: object
  *             required:
+ *               - cliente_id
  *               - descripcion
  *               - peso
  *               - dimensiones
  *               - valor_declarado
+ *               - direccion_origen
+ *               - direccion_destino
  *               - fragil
  *             properties:
+ *               cliente_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: ID del cliente que envía el paquete
  *               descripcion:
  *                 type: string
  *               peso:
@@ -216,6 +226,10 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *               valor_declarado:
  *                 type: number
  *                 minimum: 0
+ *               direccion_origen:
+ *                 type: string
+ *               direccion_destino:
+ *                 type: string
  *               fragil:
  *                 type: boolean
  *     responses:
@@ -428,7 +442,17 @@ router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: an
  *       404:
  *         description: Paquete no encontrado
  */
-router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
+// Validaciones para actualización
+const updatePaqueteValidation = [
+  body('descripcion').optional().notEmpty().withMessage('La descripción no puede estar vacía'),
+  body('peso').optional().isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0.1'),
+  body('dimensiones').optional().notEmpty().withMessage('Las dimensiones no pueden estar vacías'),
+  body('valor_declarado').optional().isFloat({ min: 0 }).withMessage('El valor declarado debe ser mayor o igual a 0'),
+  body('direccion_origen').optional().notEmpty().withMessage('La dirección de origen no puede estar vacía'),
+  body('direccion_destino').optional().notEmpty().withMessage('La dirección de destino no puede estar vacía')
+];
+
+router.put('/:id', authorizeRoles('admin', 'empleado'), updatePaqueteValidation, validateAndPassToController, async (req: any, res: any) => {
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.update(req, res);
@@ -440,6 +464,21 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, valid
  * /api/paquetes/{id}/estado:
  *   patch:
  *     summary: Actualizar estado del paquete
+ *     description: |
+ *       Actualiza el estado de un paquete siguiendo las transiciones permitidas:
+ *       
+ *       Transiciones permitidas:
+ *       - De "pendiente" → "en_transito"
+ *       - De "en_transito" → "entregado" o "devuelto"
+ *       - De "devuelto" → "pendiente"
+ *       - De "entregado" → ninguna transición permitida
+ *       
+ *       Diagrama de estados:
+ *       ```
+ *       pendiente ──→ en_transito ──→ entregado
+ *           ↑              │
+ *           └──── devuelto ←┘
+ *       ```
  *     tags: [Paquetes]
  *     security:
  *       - bearerAuth: []
@@ -462,17 +501,28 @@ router.put('/:id', authorizeRoles('admin', 'empleado'), paqueteValidation, valid
  *               estado:
  *                 type: string
  *                 enum: [pendiente, en_transito, entregado, devuelto]
+ *                 description: |
+ *                   Nuevo estado del paquete. Las transiciones permitidas son:
+ *                   - pendiente → en_transito
+ *                   - en_transito → entregado, devuelto
+ *                   - devuelto → pendiente
+ *                   - entregado → (ninguna transición permitida)
+ *               comentario:
+ *                 type: string
+ *                 description: Comentario opcional sobre el cambio de estado
  *     responses:
  *       200:
  *         description: Estado del paquete actualizado correctamente
  *       400:
- *         description: Estado inválido
+ *         description: Estado inválido o transición no permitida
  *       401:
  *         description: No autorizado
  *       403:
  *         description: Acceso prohibido
  *       404:
  *         description: Paquete no encontrado
+ *       409:
+ *         description: Transición de estado no permitida
  */
 router.patch('/:id/estado', authorizeRoles('admin', 'empleado'), [
   body('estado').isIn(['pendiente', 'en_transito', 'entregado', 'devuelto']).withMessage('Estado inválido')
@@ -512,6 +562,58 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.delete(req, res);
+});
+
+/**
+ * @swagger
+ * /api/paquetes/{id}/restore:
+ *   post:
+ *     summary: Restaurar un paquete eliminado
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del paquete a restaurar
+ *     responses:
+ *       200:
+ *         description: Paquete restaurado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     paqu_id:
+ *                       type: integer
+ *                     paqu_estado:
+ *                       type: string
+ *                     cliente:
+ *                       type: object
+ *                     historial:
+ *                       type: array
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ *       404:
+ *         description: Paquete eliminado no encontrado
+ *       500:
+ *         description: Error interno del servidor
+ */
+router.post('/:id/restore', authorizeRoles('admin'), async (req: any, res: any) => {
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
+  await paquetesController.restore(req, res);
 });
 
 export default router;
