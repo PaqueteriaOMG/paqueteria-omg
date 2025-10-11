@@ -19,15 +19,15 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     }
 
     try {
-      const Usuario = (req as any).app?.locals?.models?.Usuario || models.Usuario;
-      if (!Usuario) {
+      const User = (req as any).app?.locals?.models?.User || models.User;
+      if (!User) {
         res.status(500).json({ success: false, error: 'Modelos no disponibles' });
         return;
       }
 
-      const user = await Usuario.findOne({
-        where: { usua_id: decoded.id, usua_activo: 1 },
-        attributes: ['usua_id', 'usua_email', 'usua_rol']
+      const user = await User.findOne({
+        where: { id: decoded.id, is_active: 1 },
+        attributes: ['id', 'email', 'role']
       });
 
       if (!user) {
@@ -35,7 +35,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
         return;
       }
 
-      req.user = { id: user.usua_id, email: user.usua_email, rol: user.usua_rol } as any;
+      req.user = { id: (user as any).id, email: (user as any).email, rol: (user as any).role } as any;
       next();
     } catch (e) {
       console.error('Error autenticando token:', e);

@@ -10,7 +10,7 @@ export class UsuariosController {
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
-    this.UsuarioModel = mdl.Usuario;
+    this.UsuarioModel = mdl.User;
     this.RefreshTokenModel = mdl.RefreshToken;
   }
 
@@ -22,29 +22,29 @@ export class UsuariosController {
       const rol = req.query.rol;
       const search = req.query.search || '';
 
-      const where: any = { usua_activo: 1 };
-      if (rol) where.usua_rol = rol;
+      const where: any = { is_active: 1 };
+      if (rol) where.role = rol;
       if (search) {
         const like = `%${search}%`;
         where[Op.or] = [
-          { usua_nombre: { [Op.like]: like } },
-          { usua_email: { [Op.like]: like } }
+          { name: { [Op.like]: like } },
+          { email: { [Op.like]: like } }
         ];
       }
 
       const result = await this.UsuarioModel.findAndCountAll({
         where,
-        order: [['usua_created_at', 'DESC']],
+        order: [['created_at', 'DESC']],
         limit,
         offset,
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -78,15 +78,15 @@ export class UsuariosController {
       }
       
       const usuario = await this.UsuarioModel.findOne({
-        where: { usua_id: id, usua_activo: 1 },
+        where: { id, is_active: 1 },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -108,7 +108,7 @@ export class UsuariosController {
   async create(req: any, res: Response) {
     try {
       const { nombre, email, password, rol } = req.body;
-      const existingUser = await this.UsuarioModel.findOne({ where: { usua_email: email } });
+      const existingUser = await this.UsuarioModel.findOne({ where: { email } });
       if (existingUser) {
         res.status(400).json({
           error: 'El email ya está registrado'
@@ -120,23 +120,23 @@ export class UsuariosController {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const created = await this.UsuarioModel.create({
-        usua_nombre: nombre,
-        usua_email: email,
-        usua_password_hash: hashedPassword,
-        usua_rol: rol,
-        usua_activo: 1
+        name: nombre,
+        email: email,
+        password_hash: hashedPassword,
+        role: rol,
+        is_active: 1
       });
 
       const usuario = await this.UsuarioModel.findOne({
-        where: { usua_id: created.usua_id },
+        where: { id: created.id },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -163,7 +163,7 @@ export class UsuariosController {
         return;
       }
 
-      const existingUser = await this.UsuarioModel.findOne({ where: { usua_id: id, usua_activo: 1 }, attributes: ['usua_id', 'usua_rol'] });
+      const existingUser = await this.UsuarioModel.findOne({ where: { id, is_active: 1 }, attributes: ['id', 'role'] });
       if (!existingUser) {
         res.status(404).json({
           error: 'Usuario no encontrado'
@@ -172,30 +172,30 @@ export class UsuariosController {
       }
       const userRow = existingUser;
       // Solo admins pueden cambiar roles
-      let updateRol = userRow.usua_rol;
+      let updateRol = userRow.role;
       if (currentUser?.rol === 'admin' && rol) {
         updateRol = rol;
       }
 
       // Verificar si el email ya existe en otro usuario
-      const emailCheck = await this.UsuarioModel.findOne({ where: { usua_email: email, usua_id: { [Op.ne]: id }, usua_activo: 1 } });
+      const emailCheck = await this.UsuarioModel.findOne({ where: { email, id: { [Op.ne]: id }, is_active: 1 } });
       if (emailCheck) {
         res.status(400).json({
           error: 'El email ya está registrado por otro usuario'
         });
         return;
       }
-      await this.UsuarioModel.update({ usua_nombre: nombre, usua_email: email, usua_rol: updateRol }, { where: { usua_id: id } });
+      await this.UsuarioModel.update({ name: nombre, email: email, role: updateRol }, { where: { id } });
       const updatedUser = await this.UsuarioModel.findOne({
-        where: { usua_id: id },
+        where: { id },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -222,7 +222,7 @@ export class UsuariosController {
         return;
       }
 
-      const usuario = await this.UsuarioModel.findOne({ where: { usua_id: id, usua_activo: 1 }, attributes: ['usua_id', 'usua_password_hash'] });
+      const usuario = await this.UsuarioModel.findOne({ where: { id, is_active: 1 }, attributes: ['id', 'password_hash'] });
       if (!usuario) {
         res.status(404).json({
           error: 'Usuario no encontrado'
@@ -231,7 +231,7 @@ export class UsuariosController {
       }
       const user = usuario as any;
       // Verificar contraseña actual
-      const isValidPassword = await bcrypt.compare(current_password, user.usua_password_hash);
+      const isValidPassword = await bcrypt.compare(current_password, user.password_hash);
       if (!isValidPassword) {
         res.status(400).json({
           error: 'Contraseña actual incorrecta'
@@ -249,9 +249,9 @@ export class UsuariosController {
       }
 
       const hashedNewPassword = await bcrypt.hash(new_password, 10);
-      await this.UsuarioModel.update({ usua_password_hash: hashedNewPassword }, { where: { usua_id: id } });
+      await this.UsuarioModel.update({ password_hash: hashedNewPassword }, { where: { id } });
       try {
-        await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_user_id: id, reft_revoked: 0 } });
+        await this.RefreshTokenModel.update({ revoked: 1 }, { where: { user_id: id, revoked: 0 } });
       } catch (e) {
         console.warn('No se pudo revocar algunos tokens de refresco para el usuario', e);
       }
@@ -283,7 +283,7 @@ export class UsuariosController {
         return;
       }
 
-      const existingUser = await this.UsuarioModel.findOne({ where: { usua_id: id, usua_activo: 1 }, attributes: ['usua_id'] });
+      const existingUser = await this.UsuarioModel.findOne({ where: { id, is_active: 1 }, attributes: ['id'] });
       if (!existingUser) {
         res.status(404).json({
           error: 'Usuario no encontrado'
@@ -291,11 +291,11 @@ export class UsuariosController {
         return;
       }
 
-      await this.UsuarioModel.update({ usua_activo: 0 }, { where: { usua_id: id } });
+      await this.UsuarioModel.update({ is_active: 0 }, { where: { id } });
 
       // Revocar todos los refresh tokens activos del usuario desactivado
       try {
-        await this.RefreshTokensModel.update({ reto_revoked: 1 }, { where: { reto_user_id: id, reto_revoked: 0 } });
+        await this.RefreshTokenModel.update({ revoked: 1 }, { where: { user_id: id, revoked: 0 } });
       } catch (e) {
         console.warn('No se pudo revocar tokens de refresco al desactivar usuario', e);
       }
@@ -321,15 +321,15 @@ export class UsuariosController {
       }
 
       const usuario = await this.UsuarioModel.findOne({
-        where: { usua_id: currentUser.id, usua_activo: 1 },
+        where: { id: currentUser.id, is_active: 1 },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -368,8 +368,8 @@ export class UsuariosController {
       // Si viene email, verificar unicidad en usuarios activos
       if (email) {
         const emailExists = await this.UsuarioModel.findOne({
-          where: { usua_email: email, usua_id: { [Op.ne]: currentUser.id }, usua_activo: 1 },
-          attributes: ['usua_id']
+          where: { email: email, id: { [Op.ne]: currentUser.id }, is_active: 1 },
+          attributes: ['id']
         });
         if (emailExists) {
           res.status(400).json({ error: 'El email ya está registrado por otro usuario' });
@@ -378,24 +378,24 @@ export class UsuariosController {
       }
 
       const updateData: any = {};
-      if (typeof nombre === 'string') updateData.usua_nombre = nombre;
-      if (typeof email === 'string') updateData.usua_email = email;
+      if (typeof nombre === 'string') updateData.name = nombre;
+      if (typeof email === 'string') updateData.email = email;
       if (Object.keys(updateData).length === 0) {
         res.status(400).json({ error: 'Sin cambios para aplicar' });
         return;
       }
 
-      await this.UsuarioModel.update(updateData, { where: { usua_id: currentUser.id, usua_activo: 1 } });
+      await this.UsuarioModel.update(updateData, { where: { id: currentUser.id, is_active: 1 } });
       const updated = await this.UsuarioModel.findOne({
-        where: { usua_id: currentUser.id },
+        where: { id: currentUser.id },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 
@@ -410,22 +410,22 @@ export class UsuariosController {
   async restore(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params as { id: string };
-      const inactive = await this.UsuarioModel.findOne({ where: { usua_id: id, usua_activo: 0 }, attributes: ['usua_id'] });
+      const inactive = await this.UsuarioModel.findOne({ where: { id, is_active: 0 }, attributes: ['id'] });
       if (!inactive) {
         res.status(404).json({ error: 'Usuario no encontrado o ya activo' });
         return;
       }
-      await this.UsuarioModel.update({ usua_activo: 1 }, { where: { usua_id: id } });
+      await this.UsuarioModel.update({ is_active: 1 }, { where: { id } });
       const usuario = await this.UsuarioModel.findOne({
-        where: { usua_id: id },
+        where: { id },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
       res.json(usuario as Omit<Usuario, 'password'>);
@@ -439,22 +439,22 @@ export class UsuariosController {
     try {
       const { id } = req.params;
   
-      const inactive = await this.UsuarioModel.findOne({ where: { usua_id: id, usua_activo: 0 }, attributes: ['usua_id'] });
+      const inactive = await this.UsuarioModel.findOne({ where: { id, is_active: 0 }, attributes: ['id'] });
       if (!inactive) {
         res.status(404).json({ error: 'Usuario no encontrado o ya activo' });
         return;
       }
-      await this.UsuarioModel.update({ usua_activo: 1 }, { where: { usua_id: id } });
+      await this.UsuarioModel.update({ is_active: 1 }, { where: { id } });
       const usuario = await this.UsuarioModel.findOne({
-        where: { usua_id: id },
+        where: { id },
         attributes: [
-          ['usua_id', 'id'],
-          ['usua_nombre', 'nombre'],
-          ['usua_email', 'email'],
-          ['usua_rol', 'rol'],
-          ['usua_activo', 'activo'],
-          'usua_created_at',
-          'usua_updated_at'
+          ['id', 'id'],
+          ['name', 'nombre'],
+          ['email', 'email'],
+          ['role', 'rol'],
+          ['is_active', 'activo'],
+          'created_at',
+          'updated_at'
         ]
       });
 

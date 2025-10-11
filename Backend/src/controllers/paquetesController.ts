@@ -4,19 +4,19 @@ import { sequelize, models as defaultModels } from '../db/sequelize';
 import { Paquete } from '../types';
 
 export class PaquetesController {
-  private PaqueteModel: any;
-  private ClienteModel: any;
-  private HistorialModel: any;
-  private EnviosPaquetesModel: any;
-  private EnvioModel: any;
+  private PackageModel: any;
+  private ClientModel: any;
+  private PackageHistoryModel: any;
+  private ShipmentPackageModel: any;
+  private ShipmentModel: any;
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
-    this.PaqueteModel = mdl.Paquete;
-    this.ClienteModel = mdl.Cliente;
-    this.HistorialModel = mdl.PackageHistory;
-    this.EnviosPaquetesModel = mdl.EnviosPaquetes;
-    this.EnvioModel = mdl.Envio;
+    this.PackageModel = mdl.Package;
+    this.ClientModel = mdl.Client;
+    this.PackageHistoryModel = mdl.PackageHistory;
+    this.ShipmentPackageModel = mdl.ShipmentPackage;
+    this.ShipmentModel = mdl.Shipment;
   }
 
   private generateTrackingNumber(): string {
@@ -45,9 +45,9 @@ export class PaquetesController {
         ];
       }
 
-      const result = await this.PaqueteModel.findAndCountAll({
+      const result = await this.PackageModel.findAndCountAll({
         where,
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false }],
+        include: [{ model: this.ClientModel, as: 'client', required: false }],
         limit,
         offset,
         order: [['paqu_created_at', 'DESC']]
@@ -58,7 +58,7 @@ export class PaquetesController {
         return {
           ...plain,
           id: plain.paqu_id,
-          cliente_nombre: plain.cliente?.clie_nombre
+          cliente_nombre: plain.client?.name
         } as Paquete;
       });
 
@@ -78,9 +78,9 @@ export class PaquetesController {
   async getById(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: { paqu_id: id, paqu_activo: 1 },
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+        include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
       if (!paquete) {
@@ -88,7 +88,7 @@ export class PaquetesController {
         return;
       }
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });
@@ -111,7 +111,7 @@ export class PaquetesController {
   async getByTracking(req: any, res: Response) {
     try {
       const { numero } = req.params;
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: {
           paqu_activo: 1,
           [Op.or]: [
@@ -119,7 +119,7 @@ export class PaquetesController {
             { paqu_codigo_rastreo: numero }
           ]
         },
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+        include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
       if (!paquete) {
@@ -127,7 +127,7 @@ export class PaquetesController {
         return;
       }
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: paquete.paqu_id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });
@@ -157,7 +157,7 @@ export class PaquetesController {
     try {
       const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
 
-      const cliente = await this.ClienteModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 } });
+      const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 } });
       if (!cliente) {
         res.status(400).json({ error: 'Cliente no encontrado' });
         return;
@@ -168,7 +168,7 @@ export class PaquetesController {
       let attempts = 0;
       while (!isUnique && attempts < 10) {
         numero_seguimiento = this.generateTrackingNumber();
-        const existing = await this.PaqueteModel.findOne({
+        const existing = await this.PackageModel.findOne({
           where: {
             [Op.or]: [
               { paqu_numero_seguimiento: numero_seguimiento },
@@ -189,7 +189,7 @@ export class PaquetesController {
       let publicAttempts = 0;
       while (!isPublicUnique && publicAttempts < 10) {
         public_code = this.generatePublicCode();
-        const existingPublic = await this.PaqueteModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code } });
+        const existingPublic = await this.PackageModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code } });
         isPublicUnique = !existingPublic;
         publicAttempts++;
       }
@@ -198,7 +198,7 @@ export class PaquetesController {
         return;
       }
 
-      const pkg = await this.PaqueteModel.create({
+      const pkg = await this.PackageModel.create({
         paqu_numero_seguimiento: numero_seguimiento,
         paqu_codigo_rastreo: numero_seguimiento,
         paqu_codigo_rastreo_publico: public_code,
@@ -212,7 +212,7 @@ export class PaquetesController {
         paqu_estado: 'pendiente'
       });
 
-      await this.HistorialModel.create({
+      await this.PackageHistoryModel.create({
         hipa_paquete_id: pkg.paqu_id,
         hipa_estado_anterior: null,
         hipa_estado_nuevo: 'pendiente',
@@ -233,9 +233,9 @@ export class PaquetesController {
       const { id } = req.params;
       const updateData = req.body;
 
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: { paqu_id: id, paqu_activo: 1 },
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+        include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
       if (!paquete) {
@@ -273,7 +273,7 @@ export class PaquetesController {
       paquete.paqu_updated_at = new Date();
       await paquete.save();
 
-      await this.HistorialModel.create({
+      await this.PackageHistoryModel.create({
         hipa_paquete_id: paquete.paqu_id,
         hipa_estado_anterior: paquete.paqu_estado,
         hipa_estado_nuevo: paquete.paqu_estado,
@@ -281,7 +281,7 @@ export class PaquetesController {
         hipa_usuario_id: req.user?.id || null
       });
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });
@@ -306,7 +306,7 @@ export class PaquetesController {
       const { id } = req.params;
       const { estado, comentario } = req.body;
 
-      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
@@ -329,7 +329,7 @@ export class PaquetesController {
       paquete.paqu_updated_at = new Date();
       await paquete.save();
 
-      await this.HistorialModel.create({
+      await this.PackageHistoryModel.create({
         hipa_paquete_id: paquete.paqu_id,
         hipa_estado_anterior: estadoAnterior,
         hipa_estado_nuevo: estado,
@@ -359,7 +359,7 @@ export class PaquetesController {
       for (const item of items) {
         const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = item;
 
-        const cliente = await this.ClienteModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 }, transaction: tx });
+        const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 }, transaction: tx });
         if (!cliente) throw new Error(`Cliente ${cliente_id} no encontrado`);
 
         let numero_seguimiento: string | undefined;
@@ -367,7 +367,7 @@ export class PaquetesController {
         let attempts = 0;
         while (!isUnique && attempts < 10) {
           numero_seguimiento = this.generateTrackingNumber();
-          const existing = await this.PaqueteModel.findOne({
+          const existing = await this.PackageModel.findOne({
             where: {
               [Op.or]: [
                 { paqu_numero_seguimiento: numero_seguimiento },
@@ -386,13 +386,13 @@ export class PaquetesController {
         let publicAttempts = 0;
         while (!isPublicUnique && publicAttempts < 10) {
           public_code = this.generatePublicCode();
-          const existingPublic = await this.PaqueteModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code }, transaction: tx });
+          const existingPublic = await this.PackageModel.findOne({ where: { paqu_codigo_rastreo_publico: public_code }, transaction: tx });
           isPublicUnique = !existingPublic;
           publicAttempts++;
         }
         if (!isPublicUnique || !public_code) throw new Error('No fue posible generar un código público único');
 
-        const pkg = await this.PaqueteModel.create({
+        const pkg = await this.PackageModel.create({
           paqu_numero_seguimiento: numero_seguimiento,
           paqu_codigo_rastreo: numero_seguimiento,
           paqu_codigo_rastreo_publico: public_code,
@@ -406,7 +406,7 @@ export class PaquetesController {
           paqu_estado: 'pendiente'
         }, { transaction: tx });
 
-        await this.HistorialModel.create({
+        await this.PackageHistoryModel.create({
           hipa_paquete_id: pkg.paqu_id,
           hipa_estado_anterior: null,
           hipa_estado_nuevo: 'pendiente',
@@ -447,9 +447,9 @@ export class PaquetesController {
   async getLabel(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: { paqu_id: id, paqu_activo: 1 },
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false, attributes: ['clie_nombre'] }]
+        include: [{ model: this.ClientModel, as: 'client', required: false, attributes: ['name'] }]
       });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
@@ -473,13 +473,13 @@ export class PaquetesController {
     try {
       const { id } = req.params;
 
-      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
       }
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });
@@ -495,7 +495,7 @@ export class PaquetesController {
     try {
       const { id } = req.params;
 
-      const paquete = await this.PaqueteModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
@@ -506,13 +506,13 @@ export class PaquetesController {
         return;
       }
 
-      const associated = await this.EnviosPaquetesModel.findOne({ where: { enpa_paquete_id: id } });
+      const associated = await this.ShipmentPackageModel.findOne({ where: { enpa_paquete_id: id } });
       if (associated) {
         res.status(400).json({ error: 'No se puede eliminar un paquete asociado a un envío' });
         return;
       }
 
-      await this.PaqueteModel.update(
+      await this.PackageModel.update(
         { paqu_activo: 0, paqu_updated_at: new Date() },
         { where: { paqu_id: id } }
       );
@@ -529,7 +529,7 @@ export class PaquetesController {
     try {
       const { code } = req.params;
 
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: { paqu_codigo_rastreo_publico: code, paqu_activo: 1 },
         attributes: ['paqu_id', 'paqu_codigo_rastreo_publico', 'paqu_estado', 'paqu_created_at', 'paqu_updated_at']
       });
@@ -540,14 +540,14 @@ export class PaquetesController {
       }
 
       let envioIds: number[] = [];
-      const bridges = await this.EnviosPaquetesModel.findAll({
+      const bridges = await this.ShipmentPackageModel.findAll({
         where: { enpa_paquete_id: paquete.paqu_id },
         attributes: ['enpa_envio_id']
       });
       envioIds = bridges.map((b: any) => Number(b.enpa_envio_id));
 
       let eta: Date | null = null;
-      const latestEnvio = await this.EnvioModel.findOne({
+      const latestEnvio = await this.ShipmentModel.findOne({
         where: {
           envi_activo: 1,
           [Op.or]: [
@@ -562,7 +562,7 @@ export class PaquetesController {
         eta = latestEnvio.envi_fecha_envio_estimada || null;
       }
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: paquete.paqu_id },
         attributes: ['hipa_estado_nuevo', 'hipa_comentario', 'hipa_fecha_cambio'],
         order: [['hipa_fecha_cambio', 'DESC']]
@@ -591,9 +591,9 @@ export class PaquetesController {
     try {
       const { id } = req.params;
       
-      const paquete = await this.PaqueteModel.findOne({ 
+      const paquete = await this.PackageModel.findOne({ 
         where: { paqu_id: id, paqu_activo: 0 },
-        include: [{ model: this.ClienteModel, as: 'cliente', required: false }]
+        include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
       if (!paquete) {
@@ -608,7 +608,7 @@ export class PaquetesController {
       paquete.paqu_updated_at = new Date();
       await paquete.save();
 
-      await this.HistorialModel.create({
+      await this.PackageHistoryModel.create({
         hipa_paquete_id: paquete.paqu_id,
         hipa_estado_anterior: paquete.paqu_estado,
         hipa_estado_nuevo: paquete.paqu_estado,
@@ -616,7 +616,7 @@ export class PaquetesController {
         hipa_usuario_id: req.user?.id || null
       });
 
-      const historial = await this.HistorialModel.findAll({
+      const historial = await this.PackageHistoryModel.findAll({
         where: { hipa_paquete_id: id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });

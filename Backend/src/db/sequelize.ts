@@ -5,10 +5,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { initUserModel, User } from '../models/User';
 import { initClientModel, Client } from '../models/Client';
-import { initPaqueteModel, Paquete } from '../models/Paquete';
-import { initEnvioModel, Envio } from '../models/Envio';
+import { initPackageModel, Package } from '../models/Package';
+import { initShipmentModel, Shipment } from '../models/Shipment';
 import { initPackageHistoryModel, PackageHistory } from '../models/PackageHistory';
-import { initEnviosPaquetesModel, EnviosPaquetes } from '../models/EnviosPaquetes';
+import { initShipmentPackageModel, ShipmentPackage } from '../models/ShipmentPackage';
 import { initRefreshTokenModel, RefreshToken } from '../models/RefreshToken';
 import { initPasswordResetTokenModel, PasswordResetToken } from '../models/PasswordResetToken';
 import { initEmailVerificationTokenModel, EmailVerificationToken } from '../models/EmailVerificationToken';
@@ -31,54 +31,54 @@ export const sequelize = new Sequelize(
 export const initModels = () => {
   initUserModel(sequelize);
   initClientModel(sequelize);
-  initPaqueteModel(sequelize);
-  initEnvioModel(sequelize);
+  initPackageModel(sequelize);
+  initShipmentModel(sequelize);
   initPackageHistoryModel(sequelize);
-  initEnviosPaquetesModel(sequelize);
+  initShipmentPackageModel(sequelize);
   initRefreshTokenModel(sequelize);
   initPasswordResetTokenModel(sequelize);
   initEmailVerificationTokenModel(sequelize);
 
   // Associations
-  Paquete.belongsTo(Client, { foreignKey: 'paqu_cliente_id', as: 'cliente' });
-  Client.hasMany(Paquete, { foreignKey: 'paqu_cliente_id', as: 'paquetes' });
+  Package.belongsTo(Client, { foreignKey: 'client_id', as: 'client' });
+  Client.hasMany(Package, { foreignKey: 'client_id', as: 'packages' });
 
-  Envio.belongsTo(Paquete, { foreignKey: 'envi_paquete_id', as: 'paquete' });
-  Paquete.hasMany(Envio, { foreignKey: 'envi_paquete_id', as: 'envios' });
+  Shipment.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
+  Package.hasMany(Shipment, { foreignKey: 'package_id', as: 'shipments' });
 
   initPackageHistoryModel(sequelize);
-  Paquete.hasMany(PackageHistory, { foreignKey: 'pahi_package_id', as: 'historial' });
-  PackageHistory.belongsTo(Paquete, { foreignKey: 'pahi_package_id', as: 'paquete' });
-  PackageHistory.belongsTo(User, { foreignKey: 'pahi_user_id', as: 'usuario' });
-  User.hasMany(PackageHistory, { foreignKey: 'pahi_user_id', as: 'historial' });
+  Package.hasMany(PackageHistory, { foreignKey: 'package_id', as: 'history' });
+  PackageHistory.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
+  PackageHistory.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  User.hasMany(PackageHistory, { foreignKey: 'user_id', as: 'history' });
 
   // Auth token associations
-  RefreshToken.belongsTo(User, { foreignKey: 'reft_user_id', as: 'usuario' });
-  PasswordResetToken.belongsTo(User, { foreignKey: 'part_user_id', as: 'usuario' });
-  EmailVerificationToken.belongsTo(User, { foreignKey: 'evt_user_id', as: 'usuario' });
+  RefreshToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  PasswordResetToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  EmailVerificationToken.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
   // Many-to-many: Envios <-> Paquetes
-  Paquete.belongsToMany(Envio, {
-    through: EnviosPaquetes,
-    foreignKey: 'enpa_paquete_id',
-    otherKey: 'enpa_envio_id',
-    as: 'enviosRelacionados'
+  Package.belongsToMany(Shipment, {
+    through: ShipmentPackage,
+    foreignKey: 'package_id',
+    otherKey: 'shipment_id',
+    as: 'relatedShipments'
   });
-  Envio.belongsToMany(Paquete, {
-    through: EnviosPaquetes,
-    foreignKey: 'enpa_envio_id',
-    otherKey: 'enpa_paquete_id',
-    as: 'paquetesRelacionados'
+  Shipment.belongsToMany(Package, {
+    through: ShipmentPackage,
+    foreignKey: 'shipment_id',
+    otherKey: 'package_id',
+    as: 'relatedPackages'
   });
 };
 
 export const models = {
   User,
   Client,
-  Paquete,
-  Envio,
+  Package,
+  Shipment,
   PackageHistory,
-  EnviosPaquetes,
+  ShipmentPackage,
   RefreshToken,
   PasswordResetToken,
   EmailVerificationToken

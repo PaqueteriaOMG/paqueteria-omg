@@ -12,17 +12,17 @@ const LOGIN_BLOCK_MS = 30 * 60 * 1000; // bloqueo 30 minutos
 const loginAttempts = new Map<string, { count: number; first: number; blockedUntil?: number }>();
 
 export class AuthController {
-  private UsuarioModel: any;
+  private UserModel: any;
   private RefreshTokenModel: any;
   private PasswordResetTokenModel: any;
-  private EmailVerificationTokensModel: any;
+  private EmailVerificationTokenModel: any;
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
-    this.UsuarioModel = mdl.Usuario;
+    this.UserModel = mdl.User;
     this.RefreshTokenModel = mdl.RefreshToken;
     this.PasswordResetTokenModel = mdl.PasswordResetToken;
-    this.EmailVerificationTokensModel = mdl.EmailVerificationTokens;
+    this.EmailVerificationTokenModel = mdl.EmailVerificationToken;
   }
 
   async login(req: any, res: Response) {
@@ -64,7 +64,7 @@ export class AuthController {
       };
 
       // Buscar usuario por email (activo)
-      const user = await this.UsuarioModel.findOne({ where: { usua_email: email, usua_activo: 1 } });
+      const user = await this.UserModel.findOne({ where: { email, is_active: 1 } });
       if (!user) {
         incFailed();
         res.status(401).json({ error: 'Credenciales inválidas' });
@@ -72,7 +72,7 @@ export class AuthController {
       }
 
       // Verificar contraseña
-      const isValidPassword = await bcrypt.compare(password, user.usua_password_hash);
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
       if (!isValidPassword) {
         incFailed();
         res.status(401).json({ error: 'Credenciales inválidas' });
@@ -84,15 +84,15 @@ export class AuthController {
 
       // Generar access token corto y refresh token persistido
       const accessToken = generateAccessToken({ 
-        id: user.usua_id!, 
-        email: user.usua_email, 
-        rol: user.usua_rol 
+        id: user.id!, 
+        email: user.email, 
+        rol: user.role 
       });
 
-      const { token: refreshToken, tokenId } = createRefreshToken(user.usua_id!);
+      const { token: refreshToken, tokenId } = createRefreshToken(user.id!);
 
       // Guardar/rotar refresh token en BD
-      await this.RefreshTokenModel.create({ reft_token_id: tokenId, reft_user_id: user.usua_id, reft_revoked: 0, reft_created_at: new Date() });
+      await this.RefreshTokenModel.create({ token_id: tokenId, user_id: user.id, revoked: 0, created_at: new Date() });
 
       // Setear cookie httpOnly con refresh token
       res.cookie('refreshToken', refreshToken, {
@@ -107,10 +107,10 @@ export class AuthController {
       res.json({
         token: accessToken,
         user: {
-          id: user.usua_id!,
-          nombre: user.usua_nombre,
-          email: user.usua_email,
-          rol: user.usua_rol
+          id: user.id!,
+          nombre: user.name,
+          email: user.email,
+          rol: user.role
         }
       });
     } catch (error) {
@@ -132,7 +132,7 @@ export class AuthController {
       }
 
       // Verificar si el usuario ya existe
-      const existingUser = await this.UsuarioModel.findOne({ where: { usua_email: email } });
+      const existingUser = await this.UserModel.findOne({ where: { usua_email: email } });
       if (existingUser) {
         res.status(400).json({
           error: 'El email ya está registrado'
@@ -144,7 +144,7 @@ export class AuthController {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Crear usuario INACTIVO
-      const created = await this.UsuarioModel.create({
+      const created = await this.UserModel.create({
         usua_nombre: nombre,
         usua_email: email,
         usua_password_hash: hashedPassword,
@@ -155,7 +155,7 @@ export class AuthController {
 
       // Crear token de verificación de email y persistir
       const { tokenId, token } = createEmailVerificationToken(insertId);
-      await this.EmailVerificationTokensModel.create({ evt_token_id: tokenId, evt_user_id: insertId, evt_used: 0 });
+      await this.EmailVerificationTokenModel.create({ token_id: tokenId, user_id: insertId, is_used: 0 });
 
       // Nota: en producción se debe enviar el token por email. En desarrollo lo devolvemos para pruebas.
       const isProd = process.env.NODE_ENV === 'production';
@@ -185,7 +185,7 @@ export class AuthController {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-      const user = await this.UsuarioModel.findOne({ where: { usua_id: decoded.id, usua_activo: 1 } });
+      const user = await this.UserModel.findOne({ where: { usua_id: decoded.id, usua_activo: 1 } });
       if (!user) {
         res.status(401).json({
           error: 'Usuario no válido'
@@ -233,28 +233,28 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-      const tokenRow = await this.RefreshTokenModel.findOne({ where: { reft_token_id: payload.tokenId } });
-      if (!tokenRow || tokenRow.reft_revoked) {
+      const tokenRow = await this.RefreshTokenModel.findOne({ where: { token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.revoked) {
         res.status(401).json({ error: 'Token inválido o revocado' });
         return;
       }
-      const userId = tokenRow.reft_user_id;
-      const user = await this.UsuarioModel.findOne({ attributes: ['usua_email', 'usua_rol'], where: { usua_id: userId, usua_activo: 1 } });
+      const userId = tokenRow.user_id;
+      const user = await this.UserModel.findOne({ attributes: ['email', 'role'], where: { id: userId, is_active: 1 } });
       if (!user) {
         // Usuario inválido: revocar token actual y limpiar cookie
-        await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
+        await this.RefreshTokenModel.update({ revoked: 1 }, { where: { token_id: payload.tokenId } });
         try { res.clearCookie('refreshToken', { path: '/' }); } catch {}
         res.status(401).json({ error: 'Usuario no válido o inactivo' });
         return;
       }
 
-      const { usua_email, usua_rol } = user.dataValues as { usua_email: string; usua_rol: string };
+      const { email: userEmail, role: userRole } = user.dataValues as { email: string; role: string };
 
       // Revocar token actual y emitir uno nuevo (rotación)
-      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ revoked: 1 }, { where: { token_id: payload.tokenId } });
 
       const { token: newRefreshToken, tokenId: newTokenId } = createRefreshToken(userId);
-      await this.RefreshTokenModel.create({ reft_token_id: newTokenId, reft_user_id: userId, reft_revoked: 0 });
+      await this.RefreshTokenModel.create({ token_id: newTokenId, user_id: userId, revoked: 0 });
 
       // Setear nueva cookie
       res.cookie('refreshToken', newRefreshToken, {
@@ -267,7 +267,7 @@ export class AuthController {
       });
 
       // Emitir nuevo access token con datos del usuario obtenidos de la BD
-      const accessToken = generateAccessToken({ id: userId, email: usua_email, rol: usua_rol });
+      const accessToken = generateAccessToken({ id: userId, email: userEmail, rol: userRole });
 
       res.json({ accessToken });
     } catch (error) {
@@ -284,11 +284,11 @@ export class AuthController {
         return;
       }
 
-      const user = await this.UsuarioModel.findOne({ attributes: ['usua_id', 'usua_activo'], where: { usua_email: email } });
-      if (user && user.usua_activo === 1) {
-        const userId = user.usua_id;
+      const user = await this.UserModel.findOne({ attributes: ['id', 'is_active'], where: { email } });
+      if (user && user.is_active === 1) {
+        const userId = user.id;
         const { tokenId, token } = createPasswordResetToken(userId);
-        await this.PasswordResetTokenModel.create({ part_token_id: tokenId, part_user_id: userId, is_used: 0 });
+        await this.PasswordResetTokenModel.create({ token_id: tokenId, user_id: userId, is_used: 0 });
         if (process.env.NODE_ENV !== 'production') {
           console.log(`[PasswordReset] Token para ${email}:`, token);
         }
@@ -318,16 +318,16 @@ export class AuthController {
       }
 
       const payload = verifyPasswordResetToken(token);
-      const tokenRow = await this.PasswordResetTokenModel.findOne({ where: { part_token_id: payload.tokenId } });
-      if (!tokenRow || tokenRow.prt_used === 1) {
+      const tokenRow = await this.PasswordResetTokenModel.findOne({ where: { token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.is_used === 1) {
         res.status(400).json({ error: 'Token inválido o ya utilizado' });
         return;
       }
-      const userId = tokenRow.prt_user_id;
+      const userId = tokenRow.user_id;
       const hashed = await bcrypt.hash(newPassword, 10);
-      await this.UsuarioModel.update({ usua_password_hash: hashed }, { where: { usua_id: userId } });
-      await this.PasswordResetTokenModel.update({ is_used: 1 }, { where: { part_token_id: payload.tokenId } });
-      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_user_id: userId, reft_revoked: 0 } });
+      await this.UserModel.update({ password_hash: hashed }, { where: { id: userId } });
+      await this.PasswordResetTokenModel.update({ is_used: 1 }, { where: { token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ revoked: 1 }, { where: { user_id: userId, revoked: 0 } });
 
       res.json({ message: 'Contraseña actualizada. Vuelve a iniciar sesión.' });
     } catch (error) {
@@ -345,14 +345,14 @@ export class AuthController {
       }
 
       const payload = verifyEmailVerificationToken(token);
-      const tokenRow = await this.EmailVerificationTokensModel.findOne({ where: { evt_token_id: payload.tokenId } });
-      if (!tokenRow || tokenRow.evt_used === 1) {
+      const tokenRow = await this.EmailVerificationTokenModel.findOne({ where: { token_id: payload.tokenId } });
+      if (!tokenRow || tokenRow.is_used === 1) {
         res.status(400).json({ error: 'Token inválido o ya utilizado' });
         return;
       }
-      const userId = tokenRow.evt_user_id;
-      await this.UsuarioModel.update({ usua_activo: 1 }, { where: { usua_id: userId } });
-      await this.EmailVerificationTokensModel.update({ evt_used: 1 }, { where: { evt_token_id: payload.tokenId } });
+      const userId = tokenRow.user_id;
+      await this.UserModel.update({ is_active: 1 }, { where: { id: userId } });
+      await this.EmailVerificationTokenModel.update({ is_used: 1 }, { where: { token_id: payload.tokenId } });
 
       res.json({ message: 'Email verificado. Ya puedes iniciar sesión.' });
     } catch (error) {

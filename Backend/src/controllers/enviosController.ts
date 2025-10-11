@@ -3,19 +3,19 @@ import { Op } from 'sequelize';
 import { sequelize, models as defaultModels } from '../db/sequelize';
 
 export class EnviosController {
-  private EnvioModel: any;
-  private PaqueteModel: any;
-  private ClienteModel: any;
-  private HistorialModel: any;
-  private EnviosPaquetesModel: any;
+  private ShipmentModel: any;
+  private PackageModel: any;
+  private ClientModel: any;
+  private PackageHistoryModel: any;
+  private ShipmentPackageModel: any;
 
   constructor(_models?: any) {
     const mdl = _models || defaultModels;
-    this.EnvioModel = mdl.Envio;
-    this.PaqueteModel = mdl.Paquete;
-    this.ClienteModel = mdl.Cliente;
-    this.HistorialModel = mdl.PackageHistory;
-    this.EnviosPaquetesModel = mdl.EnviosPaquetes;
+    this.ShipmentModel = mdl.Shipment;
+    this.PackageModel = mdl.Package;
+    this.ClientModel = mdl.Client;
+    this.PackageHistoryModel = mdl.PackageHistory;
+    this.ShipmentPackageModel = mdl.ShipmentPackage;
   }
 
   async getAll(req: any, res: Response) {
@@ -38,13 +38,13 @@ export class EnviosController {
         ];
       }
 
-      const result = await this.EnvioModel.findAndCountAll({
+      const result = await this.ShipmentModel.findAndCountAll({
         where,
         include: [
           {
-            model: this.PaqueteModel,
+            model: this.PackageModel,
             as: 'paquete',
-            include: [{ model: this.ClienteModel, as: 'cliente' }]
+            include: [{ model: this.ClientModel, as: 'cliente' }]
           }
         ],
         order: [['envi_created_at', 'DESC']],
@@ -78,13 +78,13 @@ export class EnviosController {
     try {
       const { id } = req.params;
 
-      const envio = await this.EnvioModel.findOne({
+      const envio = await this.ShipmentModel.findOne({
         where: { envi_id: id, envi_activo: 1 },
         include: [
           {
-            model: this.PaqueteModel,
+            model: this.PackageModel,
             as: 'paquete',
-            include: [{ model: this.ClienteModel, as: 'cliente' }]
+            include: [{ model: this.ClientModel, as: 'cliente' }]
           }
         ]
       });
@@ -111,15 +111,15 @@ export class EnviosController {
   async getByTracking(req: any, res: Response) {
     try {
       const { numero } = req.params;
-      const envio = await this.EnvioModel.findOne({
+      const envio = await this.ShipmentModel.findOne({
         where: { envi_activo: 1 },
         include: [
           {
-            model: this.PaqueteModel,
+            model: this.PackageModel,
             as: 'paquete',
             where: { paqu_numero_seguimiento: numero },
             required: true,
-            include: [{ model: this.ClienteModel, as: 'cliente' }]
+            include: [{ model: this.ClientModel, as: 'cliente' }]
           }
         ]
       });
@@ -146,7 +146,7 @@ export class EnviosController {
   async create(req: any, res: Response) {
     try {
       const { paquete_id, direccion_origen, direccion_destino, fecha_envio_estimada } = req.body;
-      const paquete = await this.PaqueteModel.findOne({
+      const paquete = await this.PackageModel.findOne({
         where: { paqu_id: paquete_id, paqu_activo: 1 },
         attributes: ['paqu_id', 'paqu_estado']
       });
@@ -163,7 +163,7 @@ export class EnviosController {
 
       const tx = await sequelize.transaction();
       try {
-        const envio = await this.EnvioModel.create(
+        const envio = await this.ShipmentModel.create(
           {
             envi_paquete_id: paquete_id,
             envi_direccion_origen: direccion_origen,
@@ -174,12 +174,12 @@ export class EnviosController {
           { transaction: tx }
         );
 
-        await this.PaqueteModel.update(
+        await this.PackageModel.update(
           { paqu_estado: 'en_transito' },
           { where: { paqu_id: paquete_id }, transaction: tx }
         );
 
-        await this.HistorialModel.create(
+        await this.PackageHistoryModel.create(
           {
             hipa_paquete_id: paquete_id,
             hipa_estado_anterior: 'pendiente',
@@ -191,7 +191,7 @@ export class EnviosController {
         );
 
         try {
-          await this.EnviosPaquetesModel.create(
+          await this.ShipmentPackageModel.create(
             { enpa_envio_id: envio.envi_id, enpa_paquete_id: paquete_id },
             { transaction: tx }
           );
@@ -216,7 +216,7 @@ export class EnviosController {
     try {
       const { id } = req.params;
       const { direccion_origen, direccion_destino, fecha_envio_estimada, paquete_id } = req.body;
-      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      const envio = await this.ShipmentModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
       if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
@@ -231,7 +231,7 @@ export class EnviosController {
       try {
         // Reasignación de paquete (opcional)
         if (paquete_id && paquete_id !== envio.envi_paquete_id) {
-          const nuevoPaquete = await this.PaqueteModel.findOne({
+          const nuevoPaquete = await this.PackageModel.findOne({
             where: { paqu_id: paquete_id, paqu_activo: 1 },
             attributes: ['paqu_id', 'paqu_estado'],
             transaction: tx
@@ -245,11 +245,11 @@ export class EnviosController {
           }
 
           // Revertir paquete anterior a pendiente
-          await this.PaqueteModel.update(
+          await this.PackageModel.update(
             { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
             { where: { paqu_id: envio.envi_paquete_id }, transaction: tx }
           );
-          await this.HistorialModel.create(
+          await this.PackageHistoryModel.create(
             {
               hipa_paquete_id: envio.envi_paquete_id,
               hipa_estado_anterior: envio.envi_estado,
@@ -261,11 +261,11 @@ export class EnviosController {
           );
 
           // Marcar nuevo paquete en tránsito
-          await this.PaqueteModel.update(
+          await this.PackageModel.update(
             { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
             { where: { paqu_id: paquete_id }, transaction: tx }
           );
-          await this.HistorialModel.create(
+          await this.PackageHistoryModel.create(
             {
               hipa_paquete_id: paquete_id,
               hipa_estado_anterior: 'pendiente',
@@ -287,7 +287,7 @@ export class EnviosController {
         await envio.save({ transaction: tx });
         await tx.commit();
 
-        const updated = await this.EnvioModel.findByPk(id);
+        const updated = await this.ShipmentModel.findByPk(id);
         res.json(updated.get({ plain: true }));
       } catch (err: any) {
         await tx.rollback();
@@ -304,7 +304,7 @@ export class EnviosController {
     try {
       const { id } = req.params;
       const { estado, comentario } = req.body;
-      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      const envio = await this.ShipmentModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
       if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
@@ -329,7 +329,7 @@ export class EnviosController {
         envio.envi_updated_at = new Date();
         await envio.save({ transaction: tx });
 
-        const puente = await this.EnviosPaquetesModel.findAll({
+        const puente = await this.ShipmentPackageModel.findAll({
           where: { enpa_envio_id: id },
           attributes: ['enpa_paquete_id'],
           transaction: tx
@@ -346,7 +346,7 @@ export class EnviosController {
         else if (estado === 'cancelado') paqueteEstado = 'pendiente';
 
         if (paqueteIds.length > 0 && paqueteEstado) {
-          const paquetes = await this.PaqueteModel.findAll({
+          const paquetes = await this.PackageModel.findAll({
             where: { paqu_id: paqueteIds },
             attributes: ['paqu_id', 'paqu_estado'],
             transaction: tx
@@ -356,11 +356,11 @@ export class EnviosController {
           );
 
           for (const pid of paqueteIds) {
-            await this.PaqueteModel.update(
+            await this.PackageModel.update(
               { paqu_estado: paqueteEstado, paqu_updated_at: new Date() },
               { where: { paqu_id: pid }, transaction: tx }
             );
-            await this.HistorialModel.create(
+            await this.PackageHistoryModel.create(
               {
                 hipa_paquete_id: pid,
                 hipa_estado_anterior: currentById.get(pid) || estadoAnterior,
@@ -374,7 +374,7 @@ export class EnviosController {
         }
 
         await tx.commit();
-        const updatedEnvio = await this.EnvioModel.findByPk(id);
+        const updatedEnvio = await this.ShipmentModel.findByPk(id);
         res.json(updatedEnvio.get({ plain: true }));
       } catch (err) {
         await tx.rollback();
@@ -389,7 +389,7 @@ export class EnviosController {
   async delete(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
+      const envio = await this.ShipmentModel.findOne({ where: { envi_id: id, envi_activo: 1 } });
       if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
@@ -402,12 +402,12 @@ export class EnviosController {
 
       const tx = await sequelize.transaction();
       try {
-        await this.EnvioModel.update(
+        await this.ShipmentModel.update(
           { envi_activo: 0, envi_updated_at: new Date() },
           { where: { envi_id: id }, transaction: tx }
         );
 
-        const puente = await this.EnviosPaquetesModel.findAll({
+        const puente = await this.ShipmentPackageModel.findAll({
           where: { enpa_envio_id: id },
           attributes: ['enpa_paquete_id'],
           transaction: tx
@@ -418,7 +418,7 @@ export class EnviosController {
         const paqueteIds = Array.from(idsSet);
 
         if (paqueteIds.length > 0) {
-          const paquetes = await this.PaqueteModel.findAll({
+          const paquetes = await this.PackageModel.findAll({
             where: { paqu_id: paqueteIds },
             attributes: ['paqu_id', 'paqu_estado'],
             transaction: tx
@@ -428,11 +428,11 @@ export class EnviosController {
           );
 
           for (const pid of paqueteIds) {
-            await this.PaqueteModel.update(
+            await this.PackageModel.update(
               { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
               { where: { paqu_id: pid }, transaction: tx }
             );
-            await this.HistorialModel.create(
+            await this.PackageHistoryModel.create(
               {
                 hipa_paquete_id: pid,
                 hipa_estado_anterior: currentById.get(pid) || envio.envi_estado,
@@ -445,7 +445,7 @@ export class EnviosController {
           }
         }
 
-        await this.EnviosPaquetesModel.destroy({ where: { enpa_envio_id: id }, transaction: tx });
+        await this.ShipmentPackageModel.destroy({ where: { enpa_envio_id: id }, transaction: tx });
 
         await tx.commit();
         res.json({ message: 'Envío eliminado exitosamente' });
@@ -464,14 +464,14 @@ export class EnviosController {
   async listPackages(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const envio = await this.EnvioModel.findOne({ where: { envi_id: id, envi_activo: 1 }, attributes: ['envi_id'] });
+      const envio = await this.ShipmentModel.findOne({ where: { envi_id: id, envi_activo: 1 }, attributes: ['envi_id'] });
       if (!envio) {
         res.status(404).json({ error: 'Envío no encontrado' });
         return;
       }
-      const paquetes = await this.PaqueteModel.findAll({
+      const paquetes = await this.PackageModel.findAll({
         include: [{
-          model: this.EnvioModel,
+          model: this.ShipmentModel,
           as: 'enviosRelacionados',
           where: { envi_id: id },
           through: { attributes: [] }
@@ -496,7 +496,7 @@ export class EnviosController {
       }
       const tx = await sequelize.transaction();
       try {
-        const envio = await this.EnvioModel.findOne({
+        const envio = await this.ShipmentModel.findOne({
           where: { envi_id: id, envi_activo: 1 },
           attributes: ['envi_id', 'envi_estado'],
           transaction: tx
@@ -510,7 +510,7 @@ export class EnviosController {
           throw new Error('No se puede modificar un envío entregado o cancelado');
         }
 
-        const paquetesFound = await this.PaqueteModel.findAll({
+        const paquetesFound = await this.PackageModel.findAll({
           where: { paqu_id: paquetes, paqu_activo: 1 },
           attributes: ['paqu_id', 'paqu_estado'],
           transaction: tx
@@ -526,7 +526,7 @@ export class EnviosController {
 
         for (const pid of paquetes) {
           try {
-            await this.EnviosPaquetesModel.create(
+            await this.ShipmentPackageModel.create(
               { enpa_envio_id: id, enpa_paquete_id: pid },
               { transaction: tx }
             );
@@ -534,11 +534,11 @@ export class EnviosController {
             // ignorar duplicado
           }
           if (envio.envi_estado === 'en_transito') {
-            await this.PaqueteModel.update(
+            await this.PackageModel.update(
               { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
               { where: { paqu_id: pid }, transaction: tx }
             );
-            await this.HistorialModel.create(
+            await this.PackageHistoryModel.create(
               {
                 hipa_paquete_id: pid,
                 hipa_estado_anterior: 'pendiente',
@@ -570,7 +570,7 @@ export class EnviosController {
       const { id, paqueteId } = req.params;
       const tx = await sequelize.transaction();
       try {
-        const envio = await this.EnvioModel.findOne({
+        const envio = await this.ShipmentModel.findOne({
           where: { envi_id: id, envi_activo: 1 },
           attributes: ['envi_id', 'envi_estado'],
           transaction: tx
@@ -584,7 +584,7 @@ export class EnviosController {
           throw new Error('No se puede modificar un envío entregado o cancelado');
         }
 
-        const relacion = await this.EnviosPaquetesModel.findOne({
+        const relacion = await this.ShipmentPackageModel.findOne({
           where: { enpa_envio_id: id, enpa_paquete_id: paqueteId },
           transaction: tx
         });
@@ -592,23 +592,23 @@ export class EnviosController {
           throw new Error('El paquete no está asociado a este envío');
         }
 
-        const paquete = await this.PaqueteModel.findOne({
+        const paquete = await this.PackageModel.findOne({
           where: { paqu_id: paqueteId },
           attributes: ['paqu_id', 'paqu_estado'],
           transaction: tx
         });
         const prevEstado = paquete?.paqu_estado ?? 'en_transito';
 
-        await this.EnviosPaquetesModel.destroy({
+        await this.ShipmentPackageModel.destroy({
           where: { enpa_envio_id: id, enpa_paquete_id: paqueteId },
           transaction: tx
         });
 
-        await this.PaqueteModel.update(
+        await this.PackageModel.update(
           { paqu_estado: 'pendiente', paqu_updated_at: new Date() },
           { where: { paqu_id: paqueteId }, transaction: tx }
         );
-        await this.HistorialModel.create(
+        await this.PackageHistoryModel.create(
           {
             hipa_paquete_id: paqueteId,
             hipa_estado_anterior: prevEstado,
@@ -636,7 +636,7 @@ export class EnviosController {
     try {
       const { id } = req.params;
       
-      const envio = await this.EnvioModel.findOne({ 
+      const envio = await this.ShipmentModel.findOne({ 
         where: { envi_id: id, envi_activo: 0 }
       });
 
@@ -655,9 +655,9 @@ export class EnviosController {
         await envio.save({ transaction: tx });
 
         // Restaurar relaciones con paquetes
-        const paquetes = await this.PaqueteModel.findAll({
+        const paquetes = await this.PackageModel.findAll({
           include: [{
-            model: this.EnvioModel,
+            model: this.ShipmentModel,
             as: 'enviosRelacionados',
             where: { envi_id: id },
             through: { attributes: [] }
@@ -668,12 +668,12 @@ export class EnviosController {
 
         // Actualizar estado de los paquetes a en_transito
         for (const paquete of paquetes) {
-          await this.PaqueteModel.update(
+          await this.PackageModel.update(
             { paqu_estado: 'en_transito', paqu_updated_at: new Date() },
             { where: { paqu_id: paquete.paqu_id }, transaction: tx }
           );
 
-          await this.HistorialModel.create({
+          await this.PackageHistoryModel.create({
             hipa_paquete_id: paquete.paqu_id,
             hipa_estado_anterior: paquete.paqu_estado,
             hipa_estado_nuevo: 'en_transito',
@@ -684,9 +684,9 @@ export class EnviosController {
 
         await tx.commit();
 
-        const restored = await this.EnvioModel.findByPk(id, {
+        const restored = await this.ShipmentModel.findByPk(id, {
           include: [{
-            model: this.PaqueteModel,
+            model: this.PackageModel,
             as: 'paquetes',
             through: { attributes: [] }
           }]
