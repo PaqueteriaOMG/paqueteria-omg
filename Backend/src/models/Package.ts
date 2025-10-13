@@ -41,7 +41,7 @@ export class Package extends Model<PackageAttributes, PackageCreationAttributes>
 export const initPackageModel = (sequelize: Sequelize) => {
   Package.init({
     package_id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true, field: 'pack_id' },
-    client_id: { type: DataTypes.INTEGER, allowNull: true, field: 'pack_client_id' },
+    client_id: { type: DataTypes.INTEGER, allowNull: true, field: 'pack_clie_id' },
     description: { type: DataTypes.TEXT, field: 'pack_description' },
     weight: { type: DataTypes.DECIMAL(10,2), field: 'pack_weight' },
     dimensions: { type: DataTypes.STRING(50), field: 'pack_dimensions' },

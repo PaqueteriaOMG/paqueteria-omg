@@ -593,7 +593,7 @@ router.delete('/:id', authorizeRoles('admin'), async (req: any, res: any) => {
  *                 data:
  *                   type: object
  *                   properties:
- *                     paqu_id:
+ *                     pack_id:
  *                       type: integer
  *                     paqu_estado:
  *                       type: string

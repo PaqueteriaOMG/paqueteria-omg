@@ -42,7 +42,7 @@ const axios = require('axios');
     };
     const { data: pkgA } = await axios.post(base + '/paquetes', pkgAReq, auth);
     const pkgAObj = pkgA?.data || pkgA;
-    const pkgAId = pkgAObj?.id || pkgAObj?.paqu_id;
+    const pkgAId = pkgAObj?.id || pkgAObj?.pack_id;
     console.log('✔ paqueteA id =', pkgAId);
 
     console.log('4) Crear paquete B...');
@@ -58,7 +58,7 @@ const axios = require('axios');
     };
     const { data: pkgB } = await axios.post(base + '/paquetes', pkgBReq, auth);
     const pkgBObj = pkgB?.data || pkgB;
-    const pkgBId = pkgBObj?.id || pkgBObj?.paqu_id;
+    const pkgBId = pkgBObj?.id || pkgBObj?.pack_id;
     console.log('✔ paqueteB id =', pkgBId);
 
     console.log('5) Crear envío con paquete A como principal...');

@@ -33,7 +33,7 @@ export class PaquetesController {
       const estado = req.query.estado;
       const search = req.query.search || '';
 
-      const where: any = { paqu_activo: 1 };
+      const where: any = { pack_is_active: 1 };
       if (estado) where.paqu_estado = estado;
 
       if (search) {
@@ -50,14 +50,14 @@ export class PaquetesController {
         include: [{ model: this.ClientModel, as: 'client', required: false }],
         limit,
         offset,
-        order: [['paqu_created_at', 'DESC']]
+        order: [['pack_created_at', 'DESC']]
       });
 
       const rows = result.rows.map((p: any) => {
         const plain = p.get({ plain: true });
         return {
           ...plain,
-          id: plain.paqu_id,
+          id: plain.pack_id,
           cliente_nombre: plain.client?.name
         } as Paquete;
       });
@@ -66,6 +66,7 @@ export class PaquetesController {
       const totalPages = Math.ceil(total / limit);
 
       res.json({
+        success: true,
         data: rows,
         pagination: { page, limit, total, totalPages }
       });
@@ -79,7 +80,7 @@ export class PaquetesController {
     try {
       const { id } = req.params;
       const paquete = await this.PackageModel.findOne({
-        where: { paqu_id: id, paqu_activo: 1 },
+        where: { pack_id: id, pack_is_active: 1 },
         include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
@@ -98,7 +99,7 @@ export class PaquetesController {
         success: true,
         data: {
           ...plain,
-          id: plain.paqu_id,
+          id: plain.pack_id,
           historial: historial.map((h: any) => h.get({ plain: true }))
         }
       });
@@ -113,7 +114,7 @@ export class PaquetesController {
       const { numero } = req.params;
       const paquete = await this.PackageModel.findOne({
         where: {
-          paqu_activo: 1,
+          pack_is_active: 1,
           [Op.or]: [
             { paqu_numero_seguimiento: numero },
             { paqu_codigo_rastreo: numero }
@@ -128,7 +129,7 @@ export class PaquetesController {
       }
 
       const historial = await this.PackageHistoryModel.findAll({
-        where: { hipa_paquete_id: paquete.paqu_id },
+        where: { hipa_paquete_id: paquete.pack_id },
         order: [['hipa_fecha_cambio', 'DESC']]
       });
 
@@ -137,7 +138,7 @@ export class PaquetesController {
         success: true,
         data: {
           ...plain,
-          id: plain.paqu_id,
+          id: plain.pack_id,
           historial: historial.map((h: any) => h.get({ plain: true }))
         }
       });
@@ -157,7 +158,7 @@ export class PaquetesController {
     try {
       const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
 
-      const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 } });
+      const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_is_active: 1 } });
       if (!cliente) {
         res.status(400).json({ error: 'Cliente no encontrado' });
         return;
@@ -213,7 +214,7 @@ export class PaquetesController {
       });
 
       await this.PackageHistoryModel.create({
-        hipa_paquete_id: pkg.paqu_id,
+        hipa_paquete_id: pkg.pack_id,
         hipa_estado_anterior: null,
         hipa_estado_nuevo: 'pendiente',
         hipa_comentario: 'Paquete creado',
@@ -221,7 +222,7 @@ export class PaquetesController {
       });
 
       const plain = pkg.get({ plain: true });
-      res.status(201).json({ ...plain, id: plain.paqu_id } as Paquete);
+      res.status(201).json({ ...plain, id: plain.pack_id } as Paquete);
     } catch (error) {
       console.error('Error al crear paquete:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -234,7 +235,7 @@ export class PaquetesController {
       const updateData = req.body;
 
       const paquete = await this.PackageModel.findOne({
-        where: { paqu_id: id, paqu_activo: 1 },
+        where: { pack_id: id, pack_is_active: 1 },
         include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
@@ -274,7 +275,7 @@ export class PaquetesController {
       await paquete.save();
 
       await this.PackageHistoryModel.create({
-        hipa_paquete_id: paquete.paqu_id,
+        hipa_paquete_id: paquete.pack_id,
         hipa_estado_anterior: paquete.paqu_estado,
         hipa_estado_nuevo: paquete.paqu_estado,
         hipa_comentario: 'Paquete actualizado',
@@ -291,7 +292,7 @@ export class PaquetesController {
         success: true,
         data: {
           ...plain,
-          id: plain.paqu_id,
+          id: plain.pack_id,
           historial: historial.map((h: any) => h.get({ plain: true }))
         }
       });
@@ -306,7 +307,7 @@ export class PaquetesController {
       const { id } = req.params;
       const { estado, comentario } = req.body;
 
-      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { pack_id: id, pack_is_active: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
@@ -330,7 +331,7 @@ export class PaquetesController {
       await paquete.save();
 
       await this.PackageHistoryModel.create({
-        hipa_paquete_id: paquete.paqu_id,
+        hipa_paquete_id: paquete.pack_id,
         hipa_estado_anterior: estadoAnterior,
         hipa_estado_nuevo: estado,
         hipa_comentario: comentario || `Estado cambiado a ${estado}`,
@@ -338,7 +339,7 @@ export class PaquetesController {
       });
 
       const plain = paquete.get({ plain: true });
-      res.json({ ...plain, id: plain.paqu_id } as Paquete);
+      res.json({ ...plain, id: plain.pack_id } as Paquete);
     } catch (error) {
       console.error('Error al actualizar estado del paquete:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -359,7 +360,7 @@ export class PaquetesController {
       for (const item of items) {
         const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = item;
 
-        const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_activo: 1 }, transaction: tx });
+        const cliente = await this.ClientModel.findOne({ where: { clie_id: cliente_id, clie_is_active: 1 }, transaction: tx });
         if (!cliente) throw new Error(`Cliente ${cliente_id} no encontrado`);
 
         let numero_seguimiento: string | undefined;
@@ -407,7 +408,7 @@ export class PaquetesController {
         }, { transaction: tx });
 
         await this.PackageHistoryModel.create({
-          hipa_paquete_id: pkg.paqu_id,
+          hipa_paquete_id: pkg.pack_id,
           hipa_estado_anterior: null,
           hipa_estado_nuevo: 'pendiente',
           hipa_comentario: 'Paquete creado (bulk)',
@@ -415,7 +416,7 @@ export class PaquetesController {
         }, { transaction: tx });
 
         const plain = pkg.get({ plain: true });
-        created.push({ ...(plain as any), id: plain.paqu_id } as Paquete);
+        created.push({ ...(plain as any), id: plain.pack_id } as Paquete);
       }
 
       await tx.commit();
@@ -448,7 +449,7 @@ export class PaquetesController {
     try {
       const { id } = req.params;
       const paquete = await this.PackageModel.findOne({
-        where: { paqu_id: id, paqu_activo: 1 },
+        where: { pack_id: id, pack_is_active: 1 },
         include: [{ model: this.ClientModel, as: 'client', required: false, attributes: ['name'] }]
       });
       if (!paquete) {
@@ -458,7 +459,7 @@ export class PaquetesController {
       const plain = paquete.get({ plain: true });
       const svg = this.buildLabelSVG({
         ...plain,
-        id: plain.paqu_id,
+        id: plain.pack_id,
         cliente_nombre: plain.cliente?.clie_nombre
       });
       res.json({ svg });
@@ -473,7 +474,7 @@ export class PaquetesController {
     try {
       const { id } = req.params;
 
-      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { pack_id: id, pack_is_active: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
@@ -495,7 +496,7 @@ export class PaquetesController {
     try {
       const { id } = req.params;
 
-      const paquete = await this.PackageModel.findOne({ where: { paqu_id: id, paqu_activo: 1 } });
+      const paquete = await this.PackageModel.findOne({ where: { pack_id: id, pack_is_active: 1 } });
       if (!paquete) {
         res.status(404).json({ error: 'Paquete no encontrado' });
         return;
@@ -513,8 +514,8 @@ export class PaquetesController {
       }
 
       await this.PackageModel.update(
-        { paqu_activo: 0, paqu_updated_at: new Date() },
-        { where: { paqu_id: id } }
+        { pack_is_active: 0, paqu_updated_at: new Date() },
+        { where: { pack_id: id } }
       );
 
       res.json({ message: 'Paquete eliminado exitosamente' });
@@ -530,8 +531,8 @@ export class PaquetesController {
       const { code } = req.params;
 
       const paquete = await this.PackageModel.findOne({
-        where: { paqu_codigo_rastreo_publico: code, paqu_activo: 1 },
-        attributes: ['paqu_id', 'paqu_codigo_rastreo_publico', 'paqu_estado', 'paqu_created_at', 'paqu_updated_at']
+        where: { paqu_codigo_rastreo_publico: code, pack_is_active: 1 },
+        attributes: ['pack_id', 'paqu_codigo_rastreo_publico', 'paqu_estado', 'pack_created_at', 'paqu_updated_at']
       });
 
       if (!paquete) {
@@ -541,7 +542,7 @@ export class PaquetesController {
 
       let envioIds: number[] = [];
       const bridges = await this.ShipmentPackageModel.findAll({
-        where: { enpa_paquete_id: paquete.paqu_id },
+        where: { enpa_paquete_id: paquete.pack_id },
         attributes: ['enpa_envio_id']
       });
       envioIds = bridges.map((b: any) => Number(b.enpa_envio_id));
@@ -551,7 +552,7 @@ export class PaquetesController {
         where: {
           envi_activo: 1,
           [Op.or]: [
-            { envi_paquete_id: paquete.paqu_id },
+            { envi_paquete_id: paquete.pack_id },
             envioIds.length ? { envi_id: { [Op.in]: envioIds } } : { envi_id: -1 }
           ]
         },
@@ -563,7 +564,7 @@ export class PaquetesController {
       }
 
       const historial = await this.PackageHistoryModel.findAll({
-        where: { hipa_paquete_id: paquete.paqu_id },
+        where: { hipa_paquete_id: paquete.pack_id },
         attributes: ['hipa_estado_nuevo', 'hipa_comentario', 'hipa_fecha_cambio'],
         order: [['hipa_fecha_cambio', 'DESC']]
       });
@@ -576,7 +577,7 @@ export class PaquetesController {
       res.json({
         code: paquete.paqu_codigo_rastreo_publico,
         status: paquete.paqu_estado,
-        created_at: paquete.paqu_created_at,
+        created_at: paquete.pack_created_at,
         updated_at: paquete.paqu_updated_at,
         eta,
         history: events
@@ -592,7 +593,7 @@ export class PaquetesController {
       const { id } = req.params;
       
       const paquete = await this.PackageModel.findOne({ 
-        where: { paqu_id: id, paqu_activo: 0 },
+        where: { pack_id: id, pack_is_active: 0 },
         include: [{ model: this.ClientModel, as: 'client', required: false }]
       });
 
@@ -604,12 +605,12 @@ export class PaquetesController {
         return;
       }
 
-      paquete.paqu_activo = 1;
+      paquete.pack_is_active = 1;
       paquete.paqu_updated_at = new Date();
       await paquete.save();
 
       await this.PackageHistoryModel.create({
-        hipa_paquete_id: paquete.paqu_id,
+        hipa_paquete_id: paquete.pack_id,
         hipa_estado_anterior: paquete.paqu_estado,
         hipa_estado_nuevo: paquete.paqu_estado,
         hipa_comentario: 'Paquete restaurado',
@@ -626,7 +627,7 @@ export class PaquetesController {
         success: true,
         data: {
           ...plain,
-          id: plain.paqu_id,
+          id: plain.pack_id,
           historial: historial.map((h: any) => h.get({ plain: true }))
         }
       });
