@@ -14,6 +14,30 @@ export class UsuariosController {
     this.RefreshTokenModel = mdl.RefreshToken;
   }
 
+  // Mapea valores de rol recibidos (es/en) a los valores del ENUM en BD
+  private mapRoleToDb(value?: string): string | undefined {
+    if (!value) return value;
+    const v = String(value).toLowerCase();
+    switch (v) {
+      case 'admin':
+        return 'admin';
+      case 'empleado':
+      case 'employee':
+        return 'employee';
+      case 'cliente':
+        // No existe 'cliente' en BD; usar 'operator' como rol de acceso más limitado
+        return 'operator';
+      case 'operador':
+      case 'operator':
+        return 'operator';
+      case 'chofer':
+      case 'driver':
+        return 'driver';
+      default:
+        return value; // pasar tal cual por si ya es un valor válido
+    }
+  }
+
   async getAll(req: any, res: Response) {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -23,7 +47,7 @@ export class UsuariosController {
       const search = req.query.search || '';
 
       const where: any = { is_active: 1 };
-      if (rol) where.role = rol;
+      if (rol) where.role = this.mapRoleToDb(rol);
       if (search) {
         const like = `%${search}%`;
         where[Op.or] = [
@@ -37,15 +61,7 @@ export class UsuariosController {
         order: [['created_at', 'DESC']],
         limit,
         offset,
-        attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
-          'created_at',
-          'updated_at'
-        ]
+        attributes: ['id', 'name', 'email', 'role', 'is_active', 'created_at', 'updated_at']
       });
 
       const rows = result.rows as Omit<Usuario, 'password'>[];
@@ -80,11 +96,11 @@ export class UsuariosController {
       const usuario = await this.UsuarioModel.findOne({
         where: { id, is_active: 1 },
         attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
+          'id',
+          'name',
+          'email',
+          'role',
+          'is_active',
           'created_at',
           'updated_at'
         ]
@@ -123,21 +139,13 @@ export class UsuariosController {
         name: nombre,
         email: email,
         password_hash: hashedPassword,
-        role: rol,
+        role: this.mapRoleToDb(rol),
         is_active: 1
       });
 
       const usuario = await this.UsuarioModel.findOne({
         where: { id: created.id },
-        attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
-          'created_at',
-          'updated_at'
-        ]
+        attributes: ['id', 'name', 'email', 'role', 'is_active', 'created_at', 'updated_at']
       });
 
       res.status(201).json(usuario as Omit<Usuario, 'password'>);
@@ -174,7 +182,7 @@ export class UsuariosController {
       // Solo admins pueden cambiar roles
       let updateRol = userRow.role;
       if (currentUser?.rol === 'admin' && rol) {
-        updateRol = rol;
+        updateRol = this.mapRoleToDb(rol)!;
       }
 
       // Verificar si el email ya existe en otro usuario
@@ -188,15 +196,7 @@ export class UsuariosController {
       await this.UsuarioModel.update({ name: nombre, email: email, role: updateRol }, { where: { id } });
       const updatedUser = await this.UsuarioModel.findOne({
         where: { id },
-        attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
-          'created_at',
-          'updated_at'
-        ]
+        attributes: ['id', 'name', 'email', 'role', 'is_active', 'created_at', 'updated_at']
       });
 
       res.json(updatedUser as Omit<Usuario, 'password'>);
@@ -323,11 +323,11 @@ export class UsuariosController {
       const usuario = await this.UsuarioModel.findOne({
         where: { id: currentUser.id, is_active: 1 },
         attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
+          'id',
+          'name',
+          'email',
+          'role',
+          'is_active',
           'created_at',
           'updated_at'
         ]
@@ -389,11 +389,11 @@ export class UsuariosController {
       const updated = await this.UsuarioModel.findOne({
         where: { id: currentUser.id },
         attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
+          'id',
+          'name',
+          'email',
+          'role',
+          'is_active',
           'created_at',
           'updated_at'
         ]
@@ -419,11 +419,11 @@ export class UsuariosController {
       const usuario = await this.UsuarioModel.findOne({
         where: { id },
         attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
+          'id',
+          'name',
+          'email',
+          'role',
+          'is_active',
           'created_at',
           'updated_at'
         ]
@@ -448,11 +448,11 @@ export class UsuariosController {
       const usuario = await this.UsuarioModel.findOne({
         where: { id },
         attributes: [
-          ['id', 'id'],
-          ['name', 'nombre'],
-          ['email', 'email'],
-          ['role', 'rol'],
-          ['is_active', 'activo'],
+          'id',
+          'name',
+          'email',
+          'role',
+          'is_active',
           'created_at',
           'updated_at'
         ]

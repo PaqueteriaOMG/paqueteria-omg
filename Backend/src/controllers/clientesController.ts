@@ -148,7 +148,7 @@ export class ClientesController {
       // Nota: esta verificación compleja se mantiene con una consulta mínima; puede optimizarse con asociaciones si es necesario
       const { sequelize } = require('../db/sequelize');
       const [activeShipments]: any = await sequelize.query(
-        'SELECT e.envi_id AS id FROM Envios e INNER JOIN EnviosPaquetes ep ON ep.enpa_envio_id = e.envi_id INNER JOIN Paquetes p ON p.pack_id = ep.enpa_paquete_id WHERE p.paqu_cliente_id = ? AND e.envi_estado NOT IN ("entregado", "cancelado")',
+        'SELECT s.ship_id AS id FROM Shipments s INNER JOIN ShipmentPackages sp ON sp.shpa_shipment_id = s.ship_id INNER JOIN Packages p ON p.pack_id = sp.shpa_package_id WHERE p.pack_clie_id = ? AND s.ship_status NOT IN ("entregado", "cancelado")',
         { replacements: [id] }
       );
       if ((activeShipments as any[]).length > 0) {

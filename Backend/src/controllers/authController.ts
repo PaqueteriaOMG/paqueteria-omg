@@ -132,7 +132,7 @@ export class AuthController {
       }
 
       // Verificar si el usuario ya existe
-      const existingUser = await this.UserModel.findOne({ where: { usua_email: email } });
+      const existingUser = await this.UserModel.findOne({ where: { email } });
       if (existingUser) {
         res.status(400).json({
           error: 'El email ya está registrado'
@@ -143,15 +143,38 @@ export class AuthController {
       // Encriptar contraseña
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      // Mapear rol recibido a ENUM de BD
+      const mapRoleToDb = (value?: string): string | undefined => {
+        if (!value) return value;
+        const v = String(value).toLowerCase();
+        switch (v) {
+          case 'admin':
+            return 'admin';
+          case 'empleado':
+          case 'employee':
+            return 'employee';
+          case 'cliente':
+            return 'operator';
+          case 'operador':
+          case 'operator':
+            return 'operator';
+          case 'chofer':
+          case 'driver':
+            return 'driver';
+          default:
+            return value;
+        }
+      };
+
       // Crear usuario INACTIVO
       const created = await this.UserModel.create({
-        usua_nombre: nombre,
-        usua_email: email,
-        usua_password_hash: hashedPassword,
-        usua_rol: rol,
-        usua_activo: 0
+        name: nombre,
+        email: email,
+        password_hash: hashedPassword,
+        role: mapRoleToDb(rol),
+        is_active: 0
       });
-      const insertId = created.usua_id as number;
+      const insertId = created.id as number;
 
       // Crear token de verificación de email y persistir
       const { tokenId, token } = createEmailVerificationToken(insertId);
@@ -185,7 +208,7 @@ export class AuthController {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-      const user = await this.UserModel.findOne({ where: { usua_id: decoded.id, usua_activo: 1 } });
+      const user = await this.UserModel.findOne({ where: { id: decoded.id, is_active: 1 } });
       if (!user) {
         res.status(401).json({
           error: 'Usuario no válido'
@@ -214,7 +237,7 @@ export class AuthController {
       }
 
       const payload = verifyRefreshTokenPayload(refreshToken);
-      await this.RefreshTokenModel.update({ reft_revoked: 1 }, { where: { reft_token_id: payload.tokenId } });
+      await this.RefreshTokenModel.update({ revoked: 1 }, { where: { token_id: payload.tokenId } });
 
       res.clearCookie('refreshToken');
       res.json({ message: 'Sesión cerrada correctamente' });
@@ -295,7 +318,6 @@ export class AuthController {
         // Aquí se enviaría email con el enlace de restablecimiento
       }
 
-      // Responder siempre igual por seguridad
       res.json({ message: 'Si el email existe, recibirás instrucciones para restablecer tu contraseña' });
     } catch (error) {
       console.error('Error en forgotPassword:', error);

@@ -233,8 +233,10 @@ router.get("/check", async (req: any, res: any) => {
     }
 
     const payload = verifyRefreshTokenPayload(refreshToken);
-    const tokenRow = await mdl.RefreshTokens.findOne({ where: { reto_token_id: payload.tokenId } });
-    if (!tokenRow || tokenRow.reto_revoked) {
+    // Usar nombres de atributos del modelo (token_id, revoked),
+    // el mapeo a columnas físicas se realiza vía 'field' en el propio modelo
+    const tokenRow = await mdl.RefreshToken.findOne({ where: { token_id: payload.tokenId } });
+    if (!tokenRow || (tokenRow as any).revoked) {
       res
         .status(401)
         .json({ success: false, error: "Token inválido o revocado" });

@@ -10,7 +10,12 @@
     "test": "node tests/test-login.js",
     "test:login": "node tests/test-login.js",
     "test:e2e": "node tests/e2e-multipackage-test.js",
-    "test:public": "node tests/test-public-tracking.js"
+    "test:public": "node tests/test-public-tracking.js",
+    "test:auth": "node tests/test-auth-password-reset.js",
+    "test:auth:check": "node tests/test-auth-check.js",
+    "test:usuarios": "node tests/test-usuarios-crud.js",
+    "test:paquetes": "node tests/test-paquetes-bulk-status-delete.js",
+    "test:all": "npm run test:login && npm run test:e2e && npm run test:public && npm run test:auth && npm run test:auth:check && npm run test:usuarios && npm run test:paquetes"
   },
   "dependencies": {
     "@types/sequelize": "^4.28.20",
