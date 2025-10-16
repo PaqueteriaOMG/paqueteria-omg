@@ -19,20 +19,20 @@ export class PackageFormComponent implements OnInit {
   tomorrow: string;
 
   formData = {
-    sender_name: '',
-    sender_email: '',
-    sender_phone: '',
-    sender_address: '',
-    recipient_name: '',
-    recipient_email: '',
-    recipient_phone: '',
-    recipient_address: '',
-    weight: 0,
-    dimensions: '',
-    description: '',
+    sender_name: 'Juan Pérez',
+    sender_email: 'juan.perez@email.com',
+    sender_phone: '+56 9 1234 5678',
+    sender_address: 'Av. Providencia 1234, Providencia, Santiago, Chile',
+    recipient_name: 'María González',
+    recipient_email: 'maria.gonzalez@email.com',
+    recipient_phone: '+56 9 8765 4321',
+    recipient_address: 'Calle Las Flores 567, Las Condes, Santiago, Chile',
+    weight: 2.5,
+    dimensions: '30x20x15 cm',
+    description: 'Documentos importantes',
     quantity: 1,
     estimated_delivery: '',
-    notes: '',
+    notes: 'Entregar en horario de oficina',
     status: PackageStatus.PENDING
   };
 

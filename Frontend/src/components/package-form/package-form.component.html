@@ -74,7 +74,7 @@
                 name="senderPhone"
                 #senderPhone="ngModel"
                 required
-                pattern="^[+]?[0-9\s\-()]{8,15}$"
+                pattern="^(\+?[0-9]{1,4}[\s\-]?)?[0-9\s\-()]{8,15}$"
                 class="form-input"
                 [class.error]="senderPhone.invalid && senderPhone.touched"
                 placeholder="+56 9 1234 5678"
@@ -168,7 +168,7 @@
                 name="recipientPhone"
                 #recipientPhone="ngModel"
                 required
-                pattern="^[+]?[0-9\s\-()]{8,15}$"
+                pattern="^(\+?[0-9]{1,4}[\s\-]?)?[0-9\s\-()]{8,15}$"
                 class="form-input"
                 [class.error]="recipientPhone.invalid && recipientPhone.touched"
                 placeholder="+56 9 1234 5678"
