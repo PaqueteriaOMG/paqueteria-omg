@@ -60,7 +60,7 @@ export class DashboardComponent implements OnInit {
   }
 
   navigateToNewPackage() {
-    this.router.navigate(["/paquetes/nuevo"]);
+    this.router.navigate(["/new-package"]);
   }
 
   navigateToTracking() {

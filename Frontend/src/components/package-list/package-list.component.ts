@@ -167,7 +167,7 @@ export class PackageListComponent implements OnInit {
   }
 
   navigateToNewPackage() {
-    this.router.navigate(['/paquetes/nuevo']);
+    this.router.navigate(['/new-package']);
   }
 
   editPackage(id: string) {
