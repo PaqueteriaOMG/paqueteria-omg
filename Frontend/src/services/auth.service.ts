@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, catchError, map, of, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, catchError, map, of, tap, from } from 'rxjs';
+import { httpPost } from './http-helpers';
 
 export interface User {
   id: number;
@@ -31,7 +31,7 @@ export class AuthService {
   user$ = this.userSubject.asObservable();
   isLoggedIn$ = this.user$.pipe(map(u => !!u));
 
-  constructor(private http: HttpClient) {}
+  constructor() {}
 
   private loadUser(): User | null {
     const raw = localStorage.getItem('user');
@@ -51,28 +51,28 @@ export class AuthService {
   clearAdminToken() { localStorage.removeItem(this.adminTokenKey); }
 
   login(email: string, password: string): Observable<User> {
-    return this.http.post<ApiEnvelope<LoginData>>(`${this.baseUrl}/auth/login`, { email, password }, { withCredentials: true }).pipe(
-      tap(res => this.saveSession(res.data.token, res.data.user)),
-      map(res => res.data.user)
+    return from(httpPost<LoginData>(`${this.baseUrl}/auth/login`, { email, password })).pipe(
+      tap(res => this.saveSession(res.token, res.user)),
+      map(res => res.user)
     );
   }
 
   register(nombre: string, email: string, password: string, rol: 'admin'|'empleado'|'cliente', admin_token?: string): Observable<any> {
     const body: any = { nombre, email, password, rol };
-    if (admin_token) body.admin_token = admin_token; // reservado por si el backend lo usa
-    return this.http.post<ApiEnvelope<any>>(`${this.baseUrl}/auth/register`, body, { withCredentials: true });
+    if (admin_token) body.admin_token = admin_token;
+    return from(httpPost<any>(`${this.baseUrl}/auth/register`, body));
   }
 
   refresh(): Observable<string | null> {
-    return this.http.post<ApiEnvelope<{ accessToken: string }>>(`${this.baseUrl}/auth/refresh`, {}, { withCredentials: true }).pipe(
-      tap(res => localStorage.setItem(this.tokenKey, res.data.accessToken)),
-      map(res => res.data.accessToken),
+    return from(httpPost<{ accessToken: string }>(`${this.baseUrl}/auth/refresh`, {})).pipe(
+      tap(res => localStorage.setItem(this.tokenKey, res.accessToken)),
+      map(res => res.accessToken),
       catchError(() => of(null))
     );
   }
 
   logout(): Observable<void> {
-    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/logout`, {}, { withCredentials: true }).pipe(
+    return from(httpPost<{ message: string }>(`${this.baseUrl}/auth/logout`, {})).pipe(
       tap(() => {
         localStorage.removeItem(this.tokenKey);
         localStorage.removeItem('user');
@@ -92,22 +92,22 @@ export class AuthService {
 
   // Forgot password: envía email para restablecer contraseña
   forgotPassword(email: string): Observable<{ message: string }> {
-    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/forgot-password`, { email }, { withCredentials: true }).pipe(
-      map(res => ({ message: res.data.message || 'Si el correo existe, recibirás instrucciones' }))
+    return from(httpPost<{ message: string }>(`${this.baseUrl}/auth/forgot-password`, { email })).pipe(
+      map(res => ({ message: (res as any)?.message || 'Si el correo existe, recibirás instrucciones' }))
     );
   }
 
   // Reset password: usa token y nueva contraseña
   resetPassword(token: string, newPassword: string): Observable<{ message: string }> {
-    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/reset-password`, { token, newPassword }, { withCredentials: true }).pipe(
-      map(res => ({ message: res.data.message || 'Contraseña actualizada correctamente' }))
+    return from(httpPost<{ message: string }>(`${this.baseUrl}/auth/reset-password`, { token, newPassword })).pipe(
+      map(res => ({ message: (res as any)?.message || 'Contraseña actualizada correctamente' }))
     );
   }
 
   // Verificar email: acepta token (POST para simplificar)
   verifyEmail(token: string): Observable<{ message: string }> {
-    return this.http.post<ApiEnvelope<{ message: string }>>(`${this.baseUrl}/auth/verify-email`, { token }, { withCredentials: true }).pipe(
-      map(res => ({ message: res.data.message || 'Correo verificado exitosamente' }))
+    return from(httpPost<{ message: string }>(`${this.baseUrl}/auth/verify-email`, { token })).pipe(
+      map(res => ({ message: (res as any)?.message || 'Correo verificado exitosamente' }))
     );
   }
 }

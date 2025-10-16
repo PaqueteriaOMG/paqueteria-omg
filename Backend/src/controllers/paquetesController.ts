@@ -215,7 +215,6 @@ export class PaquetesController {
 
       await this.PackageHistoryModel.create({
         package_id: pkg.package_id,
-        old_status: null,
         new_status: 'pendiente',
         comment: 'Paquete creado',
         user_id: req.user?.id || null
@@ -341,7 +340,6 @@ export class PaquetesController {
 
       await this.PackageHistoryModel.create({
         package_id: paquete.package_id,
-        old_status: estadoAnterior,
         new_status: estado,
         comment: comentario || `Estado cambiado a ${estado}`,
         user_id: req.user?.id || null
@@ -418,7 +416,6 @@ export class PaquetesController {
 
         await this.PackageHistoryModel.create({
           package_id: pkg.package_id,
-          old_status: null,
           new_status: 'pendiente',
           comment: 'Paquete creado (bulk)',
           user_id: req.user?.id || null
@@ -491,6 +488,7 @@ export class PaquetesController {
 
       const historial = await this.PackageHistoryModel.findAll({
         where: { package_id: Number(id) },
+        attributes: ['new_status', 'comment', 'change_date', 'user_id'],
         order: [['change_date', 'DESC']]
       });
 
@@ -620,7 +618,6 @@ export class PaquetesController {
 
       await this.PackageHistoryModel.create({
         package_id: paquete.package_id,
-        old_status: paquete.status,
         new_status: paquete.status,
         comment: 'Paquete restaurado',
         user_id: req.user?.id || null
@@ -628,6 +625,7 @@ export class PaquetesController {
 
       const historial = await this.PackageHistoryModel.findAll({
         where: { package_id: Number(id) },
+        attributes: ['new_status', 'comment', 'change_date', 'user_id'],
         order: [['change_date', 'DESC']]
       });
 

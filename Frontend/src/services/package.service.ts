@@ -1,4 +1,3 @@
-import { HttpHeaders } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import {
   BehaviorSubject,
@@ -8,8 +7,9 @@ import {
   of,
   tap,
   throwError,
-} from "rxjs";
-import { HttpClient } from "@angular/common/http";
+  } from "rxjs";
+import { from } from "rxjs";
+// Nota: este servicio usa fetch helpers en lugar de HttpClient
 import {
   Package,
   PackageStatus,
@@ -19,6 +19,7 @@ import {
   PackageListResponse,
 } from "../models/package.model";
 import { ApiEnvelope, User } from "./auth.service";
+import { httpGet } from "./http-helpers";
 
 @Injectable({
   providedIn: "root",
@@ -30,7 +31,7 @@ export class PackageService {
   public packages$ = this.packagesSubject.asObservable();
   public loading$ = this.loadingSubject.asObservable();
   private baseUrl = "http://localhost:3000";
-  constructor(private http: HttpClient) {}
+  constructor() {}
   /*constructor() {
     this.loadMockData();
   }
@@ -143,14 +144,8 @@ export class PackageService {
       );
   }*/
   getPackages(): Observable<PackageListResponse> {
-    const token = localStorage.getItem("access_token"); // o donde sea que lo guardes
-
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
-    return this.http.get<PackageListResponse>(`${this.baseUrl}/api/paquetes`, {
-      headers,
-    });
+    const token = localStorage.getItem("access_token");
+    return from(httpGet<PackageListResponse>(`${this.baseUrl}/api/paquetes`, token));
   }
   async ngOnInit() {
     const paquete = await this.getPackageById("1").toPromise();
@@ -159,11 +154,8 @@ export class PackageService {
   }
 
   getPackageById(id: string): Observable<Package | undefined> {
-    return this.http
-      .get<{ data: Package }>(`${this.baseUrl}/api/paquetes/${id}`, {
-        withCredentials: true,
-      })
-      .pipe(map((res) => res.data));
+    const token = localStorage.getItem("access_token");
+    return from(httpGet<Package>(`${this.baseUrl}/api/paquetes/${id}`, token));
   }
 
   getPackageStats(): Observable<PackageStats> {

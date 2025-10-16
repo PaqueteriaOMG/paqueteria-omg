@@ -90,7 +90,12 @@ export class ClientesController {
         address: direccion,
         is_active: 1
       });
-      res.status(201).json(created as unknown as ClienteType);
+      const plain = created.get({ plain: true });
+      res.status(201).json({
+        ...plain,
+        id: plain.client_id,
+        clie_id: plain.client_id
+      } as unknown as ClienteType);
     } catch (error) {
       console.error('Error al crear cliente:', error);
       res.status(500).json({

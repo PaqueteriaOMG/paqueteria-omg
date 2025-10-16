@@ -36,9 +36,15 @@ const swaggerOptions: swaggerJSDoc.Options = {
       },
     ],
   },
+  // Incluir tanto archivos .ts (fuente) como .js (compilado),
+  // resolviendo rutas correctamente desde dist/src.
   apis: [
-    path.resolve(__dirname, '../routes/*.ts'),
-    path.resolve(__dirname, '../types/*.ts')
+    // Compilado (dist)
+    path.resolve(__dirname, '../routes/*.js'),
+    path.resolve(__dirname, '../types/*.js'),
+    // Fuente (src) cuando se ejecuta desde dist
+    path.resolve(__dirname, '../../src/routes/*.ts'),
+    path.resolve(__dirname, '../../src/types/*.ts')
   ], // Rutas donde buscar anotaciones de Swagger
 };
 
