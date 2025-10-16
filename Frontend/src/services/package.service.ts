@@ -7,7 +7,7 @@ import {
   of,
   tap,
   throwError,
-  } from "rxjs";
+} from "rxjs";
 import { from } from "rxjs";
 // Nota: este servicio usa fetch helpers en lugar de HttpClient
 import {
@@ -18,7 +18,7 @@ import {
   ClientGroup,
 } from "../models/package.model";
 import { ApiEnvelope, User } from "./auth.service";
-import { httpGet } from "./http-helpers";
+import { httpGet, httpPost } from "./http-helpers";
 
 @Injectable({
   providedIn: "root",
@@ -175,23 +175,10 @@ export class PackageService {
 
   createPackage(request: CreatePackageRequest): Observable<Package> {
     this.loadingSubject.next(true);
-
-    const newPackage: Package = {
-      id: Date.now().toString(),
-      tracking_number: `PKG${Date.now().toString().slice(-6)}`,
-      ...request,
-      status: PackageStatus.PENDING,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    setTimeout(() => {
-      const currentPackages = this.packagesSubject.value;
-      this.packagesSubject.next([...currentPackages, newPackage]);
-      this.loadingSubject.next(false);
-    }, 1000);
-
-    return of(newPackage);
+    const token = localStorage.getItem("access_token");
+    return from(
+      httpPost<Package>(`${this.baseUrl}/api/paquetes`, request, token!)
+    );
   }
 
   updatePackage(id: string, updates: Partial<Package>): Observable<Package> {
