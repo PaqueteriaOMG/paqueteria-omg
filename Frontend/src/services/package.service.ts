@@ -145,7 +145,7 @@ export class PackageService {
   }*/
   getPackages(): Observable<PackageListResponse> {
     const token = localStorage.getItem("access_token");
-    return from(httpGet<PackageListResponse>(`${this.baseUrl}/api/paquetes`, token));
+    return from(httpGet<PackageListResponse>(`${this.baseUrl}/api/paquetes`, token!));
   }
   async ngOnInit() {
     const paquete = await this.getPackageById("1").toPromise();
@@ -155,7 +155,7 @@ export class PackageService {
 
   getPackageById(id: string): Observable<Package | undefined> {
     const token = localStorage.getItem("access_token");
-    return from(httpGet<Package>(`${this.baseUrl}/api/paquetes/${id}`, token));
+    return from(httpGet<Package>(`${this.baseUrl}/api/paquetes/${id}`, token!));
   }
 
   getPackageStats(): Observable<PackageStats> {
