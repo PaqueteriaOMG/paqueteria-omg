@@ -156,7 +156,53 @@ export class PaquetesController {
 
   async create(req: any, res: Response) {
     try {
-      const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = req.body;
+      // Debug: Log del body recibido
+      console.log('Body recibido:', JSON.stringify(req.body, null, 2));
+
+      // Mapear nuevos nombres de campos a nombres de BD
+      const {
+        sender_name, sender_email, sender_phone, sender_address,
+        recipient_name, recipient_email, recipient_phone, recipient_address,
+        weight, dimensions, description, quantity, estimated_delivery, notes, status
+      } = req.body;
+
+      // Debug: Log de campos extraídos
+      console.log('Campos extraídos:', {
+        sender_name, sender_email, sender_phone, sender_address,
+        recipient_name, recipient_email, recipient_phone, recipient_address,
+        weight, dimensions, description
+      });
+
+      // Por ahora, necesitamos un cliente_id. Podríamos crear un cliente automáticamente
+      // o requerir que se pase como parámetro adicional
+      let cliente_id = req.body.cliente_id;
+      
+      // Si no hay cliente_id, crear un cliente temporal con los datos del remitente
+      if (!cliente_id) {
+        // Validar que tengamos los datos mínimos para crear un cliente
+        if (!sender_name || sender_name.trim() === '') {
+          res.status(400).json({ 
+            error: 'El nombre del remitente (sender_name) es requerido para crear el paquete',
+            received_data: { sender_name, sender_email, sender_phone, sender_address }
+          });
+          return;
+        }
+
+        const cliente = await this.ClientModel.create({
+          name: sender_name.trim(),
+          email: sender_email || null,
+          phone: sender_phone || null,
+          address: sender_address || null,
+          is_active: 1
+        });
+        cliente_id = cliente.client_id;
+      }
+
+      // Validar que cliente_id no sea undefined antes de hacer la consulta
+      if (!cliente_id) {
+        res.status(400).json({ error: 'ID de cliente requerido' });
+        return;
+      }
 
       const cliente = await this.ClientModel.findOne({ where: { client_id: cliente_id, is_active: 1 } });
       if (!cliente) {
@@ -204,13 +250,13 @@ export class PaquetesController {
         tracking_code: numero_seguimiento,
         public_tracking_code: public_code,
         client_id: cliente_id,
-        description: descripcion,
-        weight: peso,
-        dimensions: dimensiones,
-        declared_value: valor_declarado,
-        origin_address: direccion_origen,
-        destination_address: direccion_destino,
-        status: 'pendiente'
+        description: description,
+        weight: weight,
+        dimensions: dimensions,
+        declared_value: req.body.valor_declarado || 0, // Valor por defecto si no se proporciona
+        origin_address: sender_address,
+        destination_address: recipient_address,
+        status: status || 'pendiente'
       });
 
       await this.PackageHistoryModel.create({
@@ -255,7 +301,25 @@ export class PaquetesController {
       }
 
       // Actualizar solo los campos proporcionados
+      // Soportar tanto nuevos nombres como legacy
       const camposActualizables = [
+        // Nuevos nombres de campos
+        'sender_name',
+        'sender_email', 
+        'sender_phone',
+        'sender_address',
+        'recipient_name',
+        'recipient_email',
+        'recipient_phone', 
+        'recipient_address',
+        'weight',
+        'dimensions',
+        'description',
+        'quantity',
+        'estimated_delivery',
+        'notes',
+        'status',
+        // Campos legacy (por compatibilidad)
         'descripcion',
         'peso',
         'dimensiones',
@@ -265,6 +329,14 @@ export class PaquetesController {
       ];
 
       const mapCampos: Record<string, string> = {
+        // Mapeo de nuevos campos a campos de BD
+        sender_address: 'origin_address',
+        recipient_address: 'destination_address',
+        weight: 'weight',
+        dimensions: 'dimensions',
+        description: 'description',
+        status: 'status',
+        // Mapeo de campos legacy
         descripcion: 'description',
         peso: 'weight',
         dimensiones: 'dimensions',
@@ -274,7 +346,7 @@ export class PaquetesController {
       };
 
       camposActualizables.forEach(campo => {
-        if (updateData[campo] !== undefined) {
+        if (updateData[campo] !== undefined && mapCampos[campo]) {
           (paquete as any)[mapCampos[campo]] = updateData[campo];
         }
       });
@@ -364,7 +436,42 @@ export class PaquetesController {
     try {
       const created: Paquete[] = [];
       for (const item of items) {
-        const { cliente_id, descripcion, peso, dimensiones, valor_declarado, direccion_origen, direccion_destino } = item;
+        // Mapear nuevos nombres de campos a los campos esperados
+        const {
+          // Campos del cliente
+          sender_name,
+          sender_email,
+          sender_phone,
+          sender_address,
+          recipient_name,
+          recipient_email,
+          recipient_phone,
+          recipient_address,
+          // Campos del paquete
+          weight,
+          dimensions,
+          description,
+          quantity,
+          estimated_delivery,
+          notes,
+          status,
+          // Campos legacy (por compatibilidad)
+          cliente_id,
+          descripcion,
+          peso,
+          dimensiones,
+          valor_declarado,
+          direccion_origen,
+          direccion_destino
+        } = item;
+
+        // Usar nuevos campos o fallback a campos legacy
+        const finalDescription = description || descripcion;
+        const finalWeight = weight || peso;
+        const finalDimensions = dimensions || dimensiones;
+        const finalOriginAddress = sender_address || direccion_origen;
+        const finalDestinationAddress = recipient_address || direccion_destino;
+        const finalDeclaredValue = item.valor_declarado || 0;
 
         const cliente = await this.ClientModel.findOne({ where: { client_id: cliente_id, is_active: 1 }, transaction: tx });
         if (!cliente) throw new Error(`Cliente ${cliente_id} no encontrado`);
@@ -404,13 +511,13 @@ export class PaquetesController {
           tracking_code: numero_seguimiento,
           public_tracking_code: public_code,
           client_id: cliente_id,
-          description: descripcion,
-          weight: peso,
-          dimensions: dimensiones,
-          declared_value: valor_declarado,
-          origin_address: direccion_origen,
-          destination_address: direccion_destino,
-          status: 'pendiente'
+          description: finalDescription,
+          weight: finalWeight,
+          dimensions: finalDimensions,
+          declared_value: finalDeclaredValue,
+          origin_address: finalOriginAddress,
+          destination_address: finalDestinationAddress,
+          status: status || 'pendiente'
         }, { transaction: tx });
 
         await this.PackageHistoryModel.create({
