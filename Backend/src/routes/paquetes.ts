@@ -37,14 +37,21 @@ router.use(authenticateToken);
 
 // Validaciones
 const paqueteValidation = [
-  body('cliente_id').isInt({ min: 1 }).withMessage('El ID del cliente es requerido y debe ser válido'),
-  body('descripcion').notEmpty().withMessage('La descripción es requerida'),
-  body('peso').isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0'),
-  body('dimensiones').notEmpty().withMessage('Las dimensiones son requeridas'),
-  body('valor_declarado').isFloat({ min: 0 }).withMessage('El valor declarado debe ser mayor o igual a 0'),
-  body('direccion_origen').notEmpty().withMessage('La dirección de origen es requerida'),
-  body('direccion_destino').notEmpty().withMessage('La dirección de destino es requerida'),
-  body('fragil').isBoolean().withMessage('El campo frágil debe ser un booleano')
+  body('sender_name').notEmpty().withMessage('El nombre del remitente es requerido'),
+  body('sender_email').isEmail().withMessage('El email del remitente debe ser válido'),
+  body('sender_phone').notEmpty().withMessage('El teléfono del remitente es requerido'),
+  body('sender_address').notEmpty().withMessage('La dirección del remitente es requerida'),
+  body('recipient_name').notEmpty().withMessage('El nombre del destinatario es requerido'),
+  body('recipient_email').isEmail().withMessage('El email del destinatario debe ser válido'),
+  body('recipient_phone').notEmpty().withMessage('El teléfono del destinatario es requerido'),
+  body('recipient_address').notEmpty().withMessage('La dirección del destinatario es requerida'),
+  body('weight').isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0'),
+  body('dimensions').notEmpty().withMessage('Las dimensiones son requeridas'),
+  body('description').notEmpty().withMessage('La descripción es requerida'),
+  body('quantity').isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0'),
+  body('estimated_delivery').optional().isISO8601().withMessage('La fecha estimada de entrega debe ser válida'),
+  body('notes').optional().isString().withMessage('Las notas deben ser texto'),
+  body('status').optional().isIn(['pendiente', 'en_transito', 'entregado', 'devuelto']).withMessage('Estado inválido')
 ];
 
 const paginationValidation = [
@@ -203,35 +210,70 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *           schema:
  *             type: object
  *             required:
- *               - cliente_id
- *               - descripcion
- *               - peso
- *               - dimensiones
- *               - valor_declarado
- *               - direccion_origen
- *               - direccion_destino
- *               - fragil
+ *               - sender_name
+ *               - sender_email
+ *               - sender_phone
+ *               - sender_address
+ *               - recipient_name
+ *               - recipient_email
+ *               - recipient_phone
+ *               - recipient_address
+ *               - weight
+ *               - dimensions
+ *               - description
+ *               - quantity
  *             properties:
- *               cliente_id:
- *                 type: integer
- *                 minimum: 1
- *                 description: ID del cliente que envía el paquete
- *               descripcion:
+ *               sender_name:
  *                 type: string
- *               peso:
+ *                 description: Nombre del remitente
+ *               sender_email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del remitente
+ *               sender_phone:
+ *                 type: string
+ *                 description: Teléfono del remitente
+ *               sender_address:
+ *                 type: string
+ *                 description: Dirección del remitente
+ *               recipient_name:
+ *                 type: string
+ *                 description: Nombre del destinatario
+ *               recipient_email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del destinatario
+ *               recipient_phone:
+ *                 type: string
+ *                 description: Teléfono del destinatario
+ *               recipient_address:
+ *                 type: string
+ *                 description: Dirección del destinatario
+ *               weight:
  *                 type: number
  *                 minimum: 0.1
- *               dimensiones:
+ *                 description: Peso del paquete
+ *               dimensions:
  *                 type: string
- *               valor_declarado:
- *                 type: number
- *                 minimum: 0
- *               direccion_origen:
+ *                 description: Dimensiones del paquete
+ *               description:
  *                 type: string
- *               direccion_destino:
+ *                 description: Descripción del paquete
+ *               quantity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Cantidad de paquetes
+ *               estimated_delivery:
  *                 type: string
- *               fragil:
- *                 type: boolean
+ *                 format: date-time
+ *                 description: Fecha estimada de entrega (opcional)
+ *               notes:
+ *                 type: string
+ *                 description: Notas adicionales (opcional)
+ *               status:
+ *                 type: string
+ *                 enum: [pendiente, en_transito, entregado, devuelto]
+ *                 description: Estado del paquete (opcional)
  *     responses:
  *       201:
  *         description: Paquete creado correctamente
@@ -271,31 +313,70 @@ router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validat
  *                 items:
  *                   type: object
  *                   required:
- *                     - cliente_id
- *                     - descripcion
- *                     - peso
- *                     - dimensiones
- *                     - valor_declarado
- *                     - direccion_origen
- *                     - direccion_destino
+ *                     - sender_name
+ *                     - sender_email
+ *                     - sender_phone
+ *                     - sender_address
+ *                     - recipient_name
+ *                     - recipient_email
+ *                     - recipient_phone
+ *                     - recipient_address
+ *                     - weight
+ *                     - dimensions
+ *                     - description
+ *                     - quantity
  *                   properties:
- *                     cliente_id:
- *                       type: integer
- *                       minimum: 1
- *                     descripcion:
+ *                     sender_name:
  *                       type: string
- *                     peso:
+ *                       description: Nombre del remitente
+ *                     sender_email:
+ *                       type: string
+ *                       format: email
+ *                       description: Email del remitente
+ *                     sender_phone:
+ *                       type: string
+ *                       description: Teléfono del remitente
+ *                     sender_address:
+ *                       type: string
+ *                       description: Dirección del remitente
+ *                     recipient_name:
+ *                       type: string
+ *                       description: Nombre del destinatario
+ *                     recipient_email:
+ *                       type: string
+ *                       format: email
+ *                       description: Email del destinatario
+ *                     recipient_phone:
+ *                       type: string
+ *                       description: Teléfono del destinatario
+ *                     recipient_address:
+ *                       type: string
+ *                       description: Dirección del destinatario
+ *                     weight:
  *                       type: number
  *                       minimum: 0.1
- *                     dimensiones:
+ *                       description: Peso del paquete
+ *                     dimensions:
  *                       type: string
- *                     valor_declarado:
- *                       type: number
- *                       minimum: 0
- *                     direccion_origen:
+ *                       description: Dimensiones del paquete
+ *                     description:
  *                       type: string
- *                     direccion_destino:
+ *                       description: Descripción del paquete
+ *                     quantity:
+ *                       type: integer
+ *                       minimum: 1
+ *                       description: Cantidad de paquetes
+ *                     estimated_delivery:
  *                       type: string
+ *                       format: date-time
+ *                       description: Fecha estimada de entrega (opcional)
+ *                     notes:
+ *                       type: string
+ *                       description: Notas adicionales (opcional)
+ *                     status:
+ *                       type: string
+ *                       enum: [pendiente, en_transito, entregado, devuelto]
+ *                       description: Estado del paquete (opcional)
  *     responses:
  *       201:
  *         description: Paquetes creados correctamente
@@ -308,13 +389,21 @@ router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validat
  */
 router.post('/bulk', authorizeRoles('admin', 'empleado'), [
   body('items').isArray({ min: 1 }).withMessage('items debe ser un arreglo con al menos un elemento'),
-  body('items.*.cliente_id').isInt({ min: 1 }).withMessage('cliente_id inválido'),
-  body('items.*.descripcion').notEmpty().withMessage('descripcion requerida'),
-  body('items.*.peso').isFloat({ min: 0.1 }).withMessage('peso inválido'),
-  body('items.*.dimensiones').notEmpty().withMessage('dimensiones requeridas'),
-  body('items.*.valor_declarado').isFloat({ min: 0 }).withMessage('valor_declarado inválido'),
-  body('items.*.direccion_origen').notEmpty().withMessage('direccion_origen requerida'),
-  body('items.*.direccion_destino').notEmpty().withMessage('direccion_destino requerida')
+  body('items.*.sender_name').notEmpty().withMessage('sender_name requerido'),
+  body('items.*.sender_email').isEmail().withMessage('sender_email inválido'),
+  body('items.*.sender_phone').notEmpty().withMessage('sender_phone requerido'),
+  body('items.*.sender_address').notEmpty().withMessage('sender_address requerida'),
+  body('items.*.recipient_name').notEmpty().withMessage('recipient_name requerido'),
+  body('items.*.recipient_email').isEmail().withMessage('recipient_email inválido'),
+  body('items.*.recipient_phone').notEmpty().withMessage('recipient_phone requerido'),
+  body('items.*.recipient_address').notEmpty().withMessage('recipient_address requerida'),
+  body('items.*.weight').isFloat({ min: 0.1 }).withMessage('weight inválido'),
+  body('items.*.dimensions').notEmpty().withMessage('dimensions requeridas'),
+  body('items.*.description').notEmpty().withMessage('description requerida'),
+  body('items.*.quantity').isInt({ min: 1 }).withMessage('quantity inválida'),
+  body('items.*.estimated_delivery').optional().isISO8601().withMessage('estimated_delivery inválida'),
+  body('items.*.notes').optional().isString().withMessage('notes inválidas'),
+  body('items.*.status').optional().isIn(['pendiente', 'en_transito', 'entregado', 'devuelto']).withMessage('status inválido')
 ], validateAndPassToController, async (req: any, res: any) => {
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
@@ -411,25 +500,54 @@ router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: an
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - descripcion
- *               - peso
- *               - dimensiones
- *               - valor_declarado
- *               - fragil
  *             properties:
- *               descripcion:
+ *               sender_name:
  *                 type: string
- *               peso:
+ *                 description: Nombre del remitente
+ *               sender_email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del remitente
+ *               sender_phone:
+ *                 type: string
+ *                 description: Teléfono del remitente
+ *               sender_address:
+ *                 type: string
+ *                 description: Dirección del remitente
+ *               recipient_name:
+ *                 type: string
+ *                 description: Nombre del destinatario
+ *               recipient_email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del destinatario
+ *               recipient_phone:
+ *                 type: string
+ *                 description: Teléfono del destinatario
+ *               recipient_address:
+ *                 type: string
+ *                 description: Dirección del destinatario
+ *               weight:
  *                 type: number
  *                 minimum: 0.1
- *               dimensiones:
+ *                 description: Peso del paquete
+ *               dimensions:
  *                 type: string
- *               valor_declarado:
- *                 type: number
- *                 minimum: 0
- *               fragil:
- *                 type: boolean
+ *                 description: Dimensiones del paquete
+ *               description:
+ *                 type: string
+ *                 description: Descripción del paquete
+ *               quantity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Cantidad de paquetes
+ *               estimated_delivery:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Fecha estimada de entrega
+ *               notes:
+ *                 type: string
+ *                 description: Notas adicionales
  *     responses:
  *       200:
  *         description: Paquete actualizado correctamente
@@ -444,12 +562,20 @@ router.get('/:id/historial', authorizeRoles('admin', 'empleado'), async (req: an
  */
 // Validaciones para actualización
 const updatePaqueteValidation = [
-  body('descripcion').optional().notEmpty().withMessage('La descripción no puede estar vacía'),
-  body('peso').optional().isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0.1'),
-  body('dimensiones').optional().notEmpty().withMessage('Las dimensiones no pueden estar vacías'),
-  body('valor_declarado').optional().isFloat({ min: 0 }).withMessage('El valor declarado debe ser mayor o igual a 0'),
-  body('direccion_origen').optional().notEmpty().withMessage('La dirección de origen no puede estar vacía'),
-  body('direccion_destino').optional().notEmpty().withMessage('La dirección de destino no puede estar vacía')
+  body('sender_name').optional().notEmpty().withMessage('El nombre del remitente no puede estar vacío'),
+  body('sender_email').optional().isEmail().withMessage('El email del remitente debe ser válido'),
+  body('sender_phone').optional().notEmpty().withMessage('El teléfono del remitente no puede estar vacío'),
+  body('sender_address').optional().notEmpty().withMessage('La dirección del remitente no puede estar vacía'),
+  body('recipient_name').optional().notEmpty().withMessage('El nombre del destinatario no puede estar vacío'),
+  body('recipient_email').optional().isEmail().withMessage('El email del destinatario debe ser válido'),
+  body('recipient_phone').optional().notEmpty().withMessage('El teléfono del destinatario no puede estar vacío'),
+  body('recipient_address').optional().notEmpty().withMessage('La dirección del destinatario no puede estar vacía'),
+  body('weight').optional().isFloat({ min: 0.1 }).withMessage('El peso debe ser mayor a 0.1'),
+  body('dimensions').optional().notEmpty().withMessage('Las dimensiones no pueden estar vacías'),
+  body('description').optional().notEmpty().withMessage('La descripción no puede estar vacía'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0'),
+  body('estimated_delivery').optional().isISO8601().withMessage('La fecha estimada de entrega debe ser válida'),
+  body('notes').optional().isString().withMessage('Las notas deben ser texto')
 ];
 
 router.put('/:id', authorizeRoles('admin', 'empleado'), updatePaqueteValidation, validateAndPassToController, async (req: any, res: any) => {
