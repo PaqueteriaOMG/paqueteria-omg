@@ -10,6 +10,7 @@
     "test": "node tests/test-login.js",
     "test:login": "node tests/test-login.js",
     "test:e2e": "node tests/e2e-multipackage-test.js",
+    "test:envios": "node tests/test-envios-all-endpoints.js",
     "test:public": "node tests/test-public-tracking.js",
     "test:auth": "node tests/test-auth-password-reset.js",
     "test:auth:check": "node tests/test-auth-check.js",

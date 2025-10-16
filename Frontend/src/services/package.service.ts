@@ -16,7 +16,6 @@ import {
   PackageStats,
   CreatePackageRequest,
   ClientGroup,
-  PackageListResponse,
 } from "../models/package.model";
 import { ApiEnvelope, User } from "./auth.service";
 import { httpGet } from "./http-helpers";
@@ -143,9 +142,9 @@ export class PackageService {
         })
       );
   }*/
-  getPackages(): Observable<PackageListResponse> {
+  getPackages(): Observable<Package[]> {
     const token = localStorage.getItem("access_token");
-    return from(httpGet<PackageListResponse>(`${this.baseUrl}/api/paquetes`, token!));
+    return from(httpGet<Package[]>(`${this.baseUrl}/api/paquetes`, token!));
   }
   async ngOnInit() {
     const paquete = await this.getPackageById("1").toPromise();

@@ -4,7 +4,6 @@ import { Router } from "@angular/router";
 import { PackageService } from "../../services/package.service";
 import {
   Package,
-  PackageListResponse,
   PackageStats,
   PackageStatus,
 } from "../../models/package.model";
@@ -22,10 +21,14 @@ export class DashboardComponent implements OnInit {
   stats$: Observable<PackageStats>;
 
   constructor(private packageService: PackageService, private router: Router) {
-    this.packages$ = this.packageService.getPackages().pipe(
-      map(response => response.data.data)
-    );
+    this.packages$ = this.packageService.getPackages();
     this.stats$ = this.packageService.getPackageStats();
+
+    this.packages$.subscribe((respuesta) => {
+      for (const packagexd of respuesta) {
+        console.log(packagexd);
+      }
+    })
   }
 
   ngOnInit() {

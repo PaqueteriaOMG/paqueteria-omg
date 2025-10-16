@@ -27,9 +27,7 @@ export class ReportsComponent implements OnInit {
 
   constructor(private packageService: PackageService) {
     this.stats$ = this.packageService.getPackageStats();
-    this.packages$ = this.packageService.getPackages().pipe(
-      map(response => response.data.data)
-    );
+    this.packages$ = this.packageService.getPackages();
     
     this.monthlyData$ = this.packages$.pipe(
       map(packages => this.generateMonthlyData(packages))

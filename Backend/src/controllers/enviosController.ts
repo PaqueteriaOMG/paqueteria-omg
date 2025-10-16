@@ -182,7 +182,6 @@ export class EnviosController {
         await this.PackageHistoryModel.create(
           {
             package_id: package_id,
-            old_status: 'pendiente',
             new_status: 'en_transito',
             comment: 'Creación de envío',
             user_id: req.user?.id || null
@@ -252,7 +251,6 @@ export class EnviosController {
           await this.PackageHistoryModel.create(
             {
               package_id: envio.package_id,
-              old_status: envio.status,
               new_status: 'pendiente',
               comment: 'Reasignación de envío: paquete liberado',
               user_id: req.user?.id || null
@@ -268,7 +266,6 @@ export class EnviosController {
           await this.PackageHistoryModel.create(
             {
               package_id: package_id,
-              old_status: 'pendiente',
               new_status: 'en_transito',
               comment: 'Reasignación de envío: paquete asignado',
               user_id: req.user?.id || null
@@ -336,7 +333,6 @@ export class EnviosController {
         await this.PackageHistoryModel.create(
           {
             package_id: envio.package_id,
-            old_status: oldStatus,
             new_status: status,
             comment: comment || `Estado de envío actualizado a ${status}`,
             user_id: req.user?.id || null
@@ -383,7 +379,6 @@ export class EnviosController {
         await this.PackageHistoryModel.create(
           {
             package_id: envio.package_id,
-            old_status: envio.status,
             new_status: 'pendiente',
             comment: 'Envío cancelado/eliminado',
             user_id: req.user?.id || null
@@ -431,7 +426,6 @@ export class EnviosController {
           await this.PackageHistoryModel.create(
             {
               package_id: paquete.package_id,
-              old_status: oldStatus,
               new_status: 'en_transito',
               comment: 'Envío restaurado',
               user_id: req.user?.id || null
@@ -544,7 +538,6 @@ export class EnviosController {
             await this.PackageHistoryModel.create(
               {
                 package_id: pid,
-                old_status: paquete.status,
                 new_status: 'en_transito',
                 comment: 'Paquete agregado al envío',
                 user_id: req.user?.id || null
@@ -622,7 +615,6 @@ export class EnviosController {
             await this.PackageHistoryModel.create(
               {
                 package_id: pid,
-                old_status: paquete.status,
                 new_status: 'pendiente',
                 comment: 'Paquete removido del envío',
                 user_id: req.user?.id || null

@@ -284,7 +284,6 @@ export class PaquetesController {
 
       await this.PackageHistoryModel.create({
         package_id: paquete.package_id,
-        old_status: paquete.status,
         new_status: paquete.status,
         comment: 'Paquete actualizado',
         user_id: req.user?.id || null
