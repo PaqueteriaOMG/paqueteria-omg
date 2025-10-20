@@ -58,7 +58,7 @@ export class PaquetesController {
         return {
           ...plain,
           id: plain.package_id,
-          cliente_nombre: plain.client?.name
+          client_name: plain.client?.name
         } as Paquete;
       });
 
@@ -548,7 +548,7 @@ export class PaquetesController {
   <rect x="5" y="5" width="390" height="240" rx="8" ry="8" fill="#fff" stroke="#111"/>
   <text x="20" y="35" font-family="Arial" font-size="18" font-weight="bold">Etiqueta de Envío</text>
   <text x="20" y="65" font-family="Arial" font-size="14">Tracking: ${safe(pkg.tracking_number)}</text>
-  <text x="20" y="90" font-family="Arial" font-size="12">Cliente: ${safe(pkg.cliente_nombre ?? '')}</text>
+  <text x="20" y="90" font-family="Arial" font-size="12">Cliente: ${safe(pkg.client_name ?? '')}</text>
   <text x="20" y="110" font-family="Arial" font-size="12">Origen: ${safe(pkg.origin_address)}</text>
   <text x="20" y="130" font-family="Arial" font-size="12">Destino: ${safe(pkg.destination_address)}</text>
   <text x="20" y="160" font-family="Arial" font-size="12">Descripción: ${safe(pkg.description)}</text>
@@ -572,7 +572,7 @@ export class PaquetesController {
       const svg = this.buildLabelSVG({
         ...plain,
         id: plain.package_id,
-        cliente_nombre: plain.client?.name
+        client_name: plain.client?.name
       });
       res.json({ svg });
     } catch (error) {

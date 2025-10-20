@@ -8,8 +8,7 @@ import {
   tap,
   throwError,
 } from "rxjs";
-import { from } from "rxjs";
-// Nota: este servicio usa fetch helpers en lugar de HttpClient
+import { HttpClient } from "@angular/common/http";
 import {
   Package,
   PackageStatus,
@@ -18,7 +17,6 @@ import {
   ClientGroup,
 } from "../models/package.model";
 import { ApiEnvelope, User } from "./auth.service";
-import { httpGet, httpPost } from "./http-helpers";
 
 @Injectable({
   providedIn: "root",
@@ -30,7 +28,8 @@ export class PackageService {
   public packages$ = this.packagesSubject.asObservable();
   public loading$ = this.loadingSubject.asObservable();
   private baseUrl = "http://localhost:3000";
-  constructor() {}
+  
+  constructor(private http: HttpClient) {}
   /*constructor() {
     this.loadMockData();
   }
@@ -126,14 +125,10 @@ export class PackageService {
     this.packagesSubject.next(mockPackages);
   }*/
 
-  /*getPackages(): Observable<
-    Package[]
-  > {
+  getPackages(): Observable<Package[]> {
     this.loadingSubject.next(true);
     return this.http
-      .get<ApiEnvelope<Package[]>>(`${this.baseUrl}/api/paquetes`, {
-        withCredentials: true,
-      })
+      .get<ApiEnvelope<Package[]>>(`${this.baseUrl}/api/paquetes`)
       .pipe(
         map((res) => res.data), // asumiendo que tu API responde con un "data"
         tap((packages) => {
@@ -141,20 +136,17 @@ export class PackageService {
           this.loadingSubject.next(false);
         })
       );
-  }*/
-  getPackages(): Observable<Package[]> {
-    const token = localStorage.getItem("access_token");
-    return from(httpGet<Package[]>(`${this.baseUrl}/api/paquetes`, token!));
   }
   async ngOnInit() {
-    const paquete = await this.getPackageById("1").toPromise();
-    console.log("Primer paquete:");
-    console.log(paquete);
+    this.getPackageById("1").subscribe(paquete => {
+      console.log("Primer paquete:");
+      console.log(paquete);
+    });
   }
 
   getPackageById(id: string): Observable<Package | undefined> {
-    const token = localStorage.getItem("access_token");
-    return from(httpGet<Package>(`${this.baseUrl}/api/paquetes/${id}`, token!));
+    return this.http.get<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/${id}`)
+      .pipe(map(res => res.data));
   }
 
   getPackageStats(): Observable<PackageStats> {
@@ -175,40 +167,33 @@ export class PackageService {
 
   createPackage(request: CreatePackageRequest): Observable<Package> {
     this.loadingSubject.next(true);
-    const token = localStorage.getItem("access_token");
-    return from(
-      httpPost<Package>(`${this.baseUrl}/api/paquetes`, request, token!)
-    );
+    return this.http.post<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes`, request)
+      .pipe(
+        map(res => res.data),
+        tap(() => this.loadingSubject.next(false))
+      );
   }
 
   updatePackage(id: string, updates: Partial<Package>): Observable<Package> {
     this.loadingSubject.next(true);
-
-    setTimeout(() => {
-      const currentPackages = this.packagesSubject.value;
-      const index = currentPackages.findIndex((p) => p.id === id);
-
-      if (index !== -1) {
-        const updatedPackage = {
-          ...currentPackages[index],
-          ...updates,
-          updated_at: new Date().toISOString(),
-        };
-
-        const updatedPackages = [...currentPackages];
-        updatedPackages[index] = updatedPackage;
-        this.packagesSubject.next(updatedPackages);
-      }
-
-      this.loadingSubject.next(false);
-    }, 800);
-
-    const package_ = this.packagesSubject.value.find((p) => p.id === id);
-    return of({
-      ...package_!,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    });
+    return this.http.put<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/${id}`, updates)
+      .pipe(
+        map(res => res.data),
+        tap(updatedPkg => {
+          const currentPackages = this.packagesSubject.value;
+          const index = currentPackages.findIndex(p => p.id === id);
+          if (index !== -1) {
+            const newPackages = [...currentPackages];
+            newPackages[index] = updatedPkg;
+            this.packagesSubject.next(newPackages);
+          }
+          this.loadingSubject.next(false);
+        }),
+        catchError(error => {
+          this.loadingSubject.next(false);
+          return throwError(() => error);
+        })
+      );
   }
 
   deletePackage(id: string): Observable<boolean> {

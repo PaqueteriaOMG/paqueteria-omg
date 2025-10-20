@@ -43,13 +43,30 @@ export class PackageListComponent implements OnInit {
   // NUEVO: feedback de copiado por paquete
   copiedPublicLink = new Set<string>();
   private apiBase = 'http://localhost:3000/api';
+  
+  // Mapeo de campos del backend a nuestro modelo
+  private fieldMap = {
+    id: 'paqu_id',
+    tracking_number: 'paqu_codigo_rastreo',
+    public_code: 'paqu_codigo_rastreo_publico',
+    sender_name: 'paqu_remitente_nombre',
+    sender_address: 'paqu_remitente_direccion',
+    recipient_name: 'paqu_destinatario_nombre',
+    recipient_address: 'paqu_destinatario_direccion',
+    description: 'paqu_descripcion',
+    status: 'paqu_estado',
+    estimated_delivery: 'paqu_fecha_entrega_estimada'
+  };
 
   constructor(
     private packageService: PackageService,
     private router: Router,
     private http: HttpClient
   ) {
-    this.packages$ = this.packageService.getPackages();
+    // Modificar para mapear los datos del backend al modelo del frontend
+    this.packages$ = this.packageService.getPackages().pipe(
+      map(packages => packages.map(pkg => this.mapPackageFromBackend(pkg)))
+    );
 
     this.filteredPackages$ = combineLatest([
       this.packages$,
@@ -243,5 +260,42 @@ export class PackageListComponent implements OnInit {
     return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
       .toISOString()
       .slice(0, 10);
+  }
+
+  // Función para mapear los datos del backend al modelo del frontend
+  private mapPackageFromBackend(backendPackage: any): Package {
+    return {
+      id: backendPackage.package_id?.toString() || backendPackage.id?.toString() || '',
+      tracking_number: backendPackage.tracking_number || backendPackage.tracking_code || '',
+      sender_name: backendPackage.client?.name || backendPackage.client_name || '',
+      sender_email: backendPackage.client?.email || '',
+      sender_phone: backendPackage.client?.phone || '',
+      sender_address: backendPackage.origin_address || '',
+      recipient_name: backendPackage.client?.name || backendPackage.client_name || '',
+      recipient_email: backendPackage.client?.email || '',
+      recipient_phone: backendPackage.client?.phone || '',
+      recipient_address: backendPackage.destination_address || '',
+      weight: parseFloat(backendPackage.weight) || 0,
+      dimensions: backendPackage.dimensions || '',
+      description: backendPackage.description || '',
+      quantity: 1,
+      status: this.mapStatus(backendPackage.status),
+      created_at: backendPackage.created_at || '',
+      updated_at: backendPackage.updated_at || '',
+      estimated_delivery: backendPackage.created_at || '', // Usando created_at como fecha estimada si no hay otra
+      notes: ''
+    };
+  }
+
+  // Mapear el estado del backend al enum PackageStatus
+  private mapStatus(status: string): PackageStatus {
+    const statusMap: Record<string, PackageStatus> = {
+      'pendiente': PackageStatus.PENDING,
+      'en_transito': PackageStatus.IN_TRANSIT,
+      'entregado': PackageStatus.DELIVERED,
+      'devuelto': PackageStatus.RETURNED
+    };
+    
+    return statusMap[status?.toLowerCase()] || PackageStatus.PENDING;
   }
 }

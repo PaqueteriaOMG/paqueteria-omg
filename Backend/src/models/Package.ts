@@ -3,6 +3,14 @@ import { Sequelize, DataTypes, Model, Optional } from 'sequelize';
 export interface PackageAttributes {
   package_id: number;
   client_id?: number | null;
+  sender_name?: string | null;
+  sender_email?: string | null;
+  sender_phone?: string | null;
+  sender_address?: string | null;
+  recipient_name?: string | null;
+  recipient_email?: string | null;
+  recipient_phone?: string | null;
+  recipient_address?: string | null;
   description?: string | null;
   weight?: number | null;
   dimensions?: string | null;
@@ -18,11 +26,19 @@ export interface PackageAttributes {
   updated_at?: Date;
 }
 
-export type PackageCreationAttributes = Optional<PackageAttributes, 'package_id' | 'client_id' | 'description' | 'weight' | 'dimensions' | 'declared_value' | 'origin_address' | 'destination_address' | 'tracking_code' | 'public_tracking_code' | 'created_at' | 'updated_at'>;
+export type PackageCreationAttributes = Optional<PackageAttributes, 'package_id' | 'client_id' | 'sender_name' | 'sender_email' | 'sender_phone' | 'sender_address' | 'recipient_name' | 'recipient_email' | 'recipient_phone' | 'recipient_address' | 'description' | 'weight' | 'dimensions' | 'declared_value' | 'origin_address' | 'destination_address' | 'tracking_code' | 'public_tracking_code' | 'created_at' | 'updated_at'>;
 
 export class Package extends Model<PackageAttributes, PackageCreationAttributes> implements PackageAttributes {
   public package_id!: number;
   public client_id?: number | null;
+  public sender_name?: string | null;
+  public sender_email?: string | null;
+  public sender_phone?: string | null;
+  public sender_address?: string | null;
+  public recipient_name?: string | null;
+  public recipient_email?: string | null;
+  public recipient_phone?: string | null;
+  public recipient_address?: string | null;
   public description?: string | null;
   public weight?: number | null;
   public dimensions?: string | null;
@@ -42,6 +58,14 @@ export const initPackageModel = (sequelize: Sequelize) => {
   Package.init({
     package_id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true, field: 'pack_id' },
     client_id: { type: DataTypes.INTEGER, allowNull: true, field: 'pack_clie_id' },
+    sender_name: { type: DataTypes.STRING(255), allowNull: true, field: 'pack_sender_name' },
+    sender_email: { type: DataTypes.STRING(255), allowNull: true, field: 'pack_sender_email' },
+    sender_phone: { type: DataTypes.STRING(20), allowNull: true, field: 'pack_sender_phone' },
+    sender_address: { type: DataTypes.TEXT, allowNull: true, field: 'pack_sender_address' },
+    recipient_name: { type: DataTypes.STRING(255), allowNull: true, field: 'pack_recipient_name' },
+    recipient_email: { type: DataTypes.STRING(255), allowNull: true, field: 'pack_recipient_email' },
+    recipient_phone: { type: DataTypes.STRING(20), allowNull: true, field: 'pack_recipient_phone' },
+    recipient_address: { type: DataTypes.TEXT, allowNull: true, field: 'pack_recipient_address' },
     description: { type: DataTypes.TEXT, field: 'pack_description' },
     weight: { type: DataTypes.DECIMAL(10,2), field: 'pack_weight' },
     dimensions: { type: DataTypes.STRING(50), field: 'pack_dimensions' },
