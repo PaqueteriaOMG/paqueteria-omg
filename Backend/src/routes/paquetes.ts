@@ -139,6 +139,46 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
   await paquetesController.getAll(req, res);
 });
 
+/**
+ * @swagger
+ * /api/paquetes/stats:
+ *   get:
+ *     summary: Obtener estadísticas de paquetes
+ *     tags: [Paquetes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estadísticas obtenidas con éxito
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pendientes:
+ *                       type: integer
+ *                     en_transito:
+ *                       type: integer
+ *                     entregados:
+ *                       type: integer
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso prohibido
+ */
+router.get('/stats', authorizeRoles('admin', 'empleado'), async (req: any, res: any) => {
+  const mdl = req.app.locals.models || defaultModels;
+  const paquetesController = new PaquetesController(mdl);
+  await paquetesController.getStats(req, res);
+});
+
 // Obtener paquete por ID
 /**
  * @swagger
@@ -294,6 +334,7 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
+  console.log("estimated_delivery", req.body.estimated_delivery);
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.create(req, res);

@@ -21,12 +21,14 @@ export interface PackageAttributes {
   tracking_number: string;
   tracking_code?: string | null;
   public_tracking_code?: string | null;
+  estimated_delivery_date?: Date | null;
+  quantity?: number | null;
   is_active: number;
-  created_at?: Date;
-  updated_at?: Date;
+  created_at?: Date | null;
+  updated_at?: Date | null;
 }
 
-export type PackageCreationAttributes = Optional<PackageAttributes, 'package_id' | 'client_id' | 'sender_name' | 'sender_email' | 'sender_phone' | 'sender_address' | 'recipient_name' | 'recipient_email' | 'recipient_phone' | 'recipient_address' | 'description' | 'weight' | 'dimensions' | 'declared_value' | 'origin_address' | 'destination_address' | 'tracking_code' | 'public_tracking_code' | 'created_at' | 'updated_at'>;
+export type PackageCreationAttributes = Optional<PackageAttributes, 'package_id' | 'client_id' | 'sender_name' | 'sender_email' | 'sender_phone' | 'sender_address' | 'recipient_name' | 'recipient_email' | 'recipient_phone' | 'recipient_address' | 'description' | 'weight' | 'dimensions' | 'declared_value' | 'origin_address' | 'destination_address' | 'tracking_code' | 'public_tracking_code' | 'estimated_delivery_date' | 'quantity' | 'created_at' | 'updated_at'>;
 
 export class Package extends Model<PackageAttributes, PackageCreationAttributes> implements PackageAttributes {
   public package_id!: number;
@@ -49,6 +51,8 @@ export class Package extends Model<PackageAttributes, PackageCreationAttributes>
   public tracking_number!: string;
   public tracking_code?: string | null;
   public public_tracking_code?: string | null;
+  public estimated_delivery_date?: Date | null;
+  public quantity?: number | null;
   public is_active!: number;
   public created_at?: Date;
   public updated_at?: Date;
@@ -76,6 +80,8 @@ export const initPackageModel = (sequelize: Sequelize) => {
     tracking_number: { type: DataTypes.STRING(191), allowNull: false, field: 'pack_tracking_number' },
     tracking_code: { type: DataTypes.STRING(191), field: 'pack_tracking_code' },
     public_tracking_code: { type: DataTypes.STRING(191), field: 'pack_public_tracking_code' },
+    estimated_delivery_date: { type: DataTypes.DATE, field: 'pack_estimated_delivery_date' },
+    quantity: { type: DataTypes.INTEGER, field: 'pack_quantity', defaultValue: 1 },
     is_active: { type: DataTypes.TINYINT, allowNull: false, defaultValue: 1, field: 'pack_is_active' },
     created_at: { type: DataTypes.DATE, field: 'pack_created_at' },
     updated_at: { type: DataTypes.DATE, field: 'pack_updated_at' }

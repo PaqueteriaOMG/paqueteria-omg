@@ -76,6 +76,52 @@ export class PaquetesController {
     }
   }
 
+  async getStats(req: any, res: Response) {
+    try {
+      // Obtener el total de paquetes activos
+      const totalPaquetes = await this.PackageModel.count({
+        where: { is_active: 1 }
+      });
+
+      // Obtener paquetes pendientes
+      const pendientes = await this.PackageModel.count({
+        where: { 
+          is_active: 1,
+          status: 'pendiente'
+        }
+      });
+
+      // Obtener paquetes en tránsito
+      const enTransito = await this.PackageModel.count({
+        where: { 
+          is_active: 1,
+          status: 'en_transito'
+        }
+      });
+
+      // Obtener paquetes entregados
+      const entregados = await this.PackageModel.count({
+        where: { 
+          is_active: 1,
+          status: 'entregado'
+        }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          total: totalPaquetes,
+          pendientes,
+          en_transito: enTransito,
+          entregados
+        }
+      });
+    } catch (error) {
+      console.error('Error al obtener estadísticas de paquetes:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
   async getById(req: any, res: Response) {
     try {
       const { id } = req.params;
@@ -264,6 +310,8 @@ export class PaquetesController {
         declared_value: req.body.valor_declarado || 0,
         origin_address: sender_address,
         destination_address: recipient_address,
+        estimated_delivery_date: estimated_delivery || null,
+        quantity: quantity || 1,
         status: status || 'pendiente'
       });
 
@@ -348,6 +396,9 @@ export class PaquetesController {
         dimensions: 'dimensions',
         description: 'description',
         status: 'status',
+        quantity: 'quantity',
+        estimated_delivery: 'estimated_delivery',
+        notes: 'notes',
         // Mapeo de campos legacy
         descripcion: 'description',
         peso: 'weight',
@@ -537,7 +588,10 @@ export class PaquetesController {
           declared_value: finalDeclaredValue,
           origin_address: finalOriginAddress,
           destination_address: finalDestinationAddress,
-          status: status || 'pendiente'
+          status: status || 'pendiente',
+          quantity: quantity || 1,
+          estimated_delivery: estimated_delivery || null,
+          notes: notes || ''
         }, { transaction: tx });
 
         await this.PackageHistoryModel.create({
