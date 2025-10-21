@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS Packages (
   pack_created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   pack_updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   pack_estimated_delivery_date DATETIME NULL,
+  pack_quantity INT NULL,
   CONSTRAINT uq_pack_tracking_number UNIQUE (pack_tracking_number),
   CONSTRAINT uq_pack_tracking_code UNIQUE (pack_tracking_code),
   CONSTRAINT fk_packages_client FOREIGN KEY (pack_clie_id) REFERENCES Clients(clie_id)
