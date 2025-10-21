@@ -1,6 +1,11 @@
 <div class="package-list">
   <div class="toolbar">
-    <input type="text" [(ngModel)]="searchQuery" (input)="onSearchChange()" placeholder="Buscar por tracking, remitente, destinatario, descripción" />
+    <input
+      type="text"
+      [(ngModel)]="searchQuery"
+      (input)="onSearchChange()"
+      placeholder="Buscar por tracking, remitente, destinatario, descripción"
+    />
     <select [(ngModel)]="selectedStatus" (change)="onStatusChange()">
       <option value="">Todos los estados</option>
       <option [value]="PackageStatus.PENDING">Pendiente</option>
@@ -9,53 +14,99 @@
       <option [value]="PackageStatus.RETURNED">Devuelto</option>
     </select>
     <button (click)="clearFilters()">Limpiar</button>
-    <button class="primary" (click)="navigateToNewPackage()">Nuevo paquete</button>
+    <button class="primary" (click)="navigateToNewPackage()">
+      Nuevo paquete
+    </button>
   </div>
 
   <div class="view-toggle">
-    <button [class.active]="viewMode==='individual'" (click)="setViewMode('individual')">Individual</button>
-    <button [class.active]="viewMode==='grouped'" (click)="setViewMode('grouped')">Agrupado</button>
+    <button
+      [class.active]="viewMode === 'individual'"
+      (click)="setViewMode('individual')"
+    >
+      Individual
+    </button>
+    <button
+      [class.active]="viewMode === 'grouped'"
+      (click)="setViewMode('grouped')"
+    >
+      Agrupado
+    </button>
   </div>
 
-  <ng-container *ngIf="viewMode==='individual'; else groupedTpl">
-    <div class="cards" *ngIf="(filteredPackages$ | async) as packages; else loadingTpl">
+  <ng-container *ngIf="viewMode === 'individual'; else groupedTpl">
+    <div
+      class="cards"
+      *ngIf="filteredPackages$ | async as packages; else loadingTpl"
+    >
       <div class="card" *ngFor="let pkg of packages; trackBy: trackByPackageId">
         <div class="card-header">
           <div class="title">
             <h3>{{ pkg.tracking_number }}</h3>
-            <span class="badge" [class.pending]="pkg.status===PackageStatus.PENDING" [class.intransit]="pkg.status===PackageStatus.IN_TRANSIT" [class.delivered]="pkg.status===PackageStatus.DELIVERED" [class.returned]="pkg.status===PackageStatus.RETURNED">{{ getStatusText(pkg.status) }}</span>
+            <span
+              class="badge"
+              [class.pending]="pkg.status === PackageStatus.PENDING"
+              [class.intransit]="pkg.status === PackageStatus.IN_TRANSIT"
+              [class.delivered]="pkg.status === PackageStatus.DELIVERED"
+              [class.returned]="pkg.status === PackageStatus.RETURNED"
+              >{{ getStatusText(pkg.status) }}</span
+            >
           </div>
           <div class="actions">
             <button (click)="editPackageByPkg(pkg)">Editar</button>
-            <button class="danger" (click)="deletePackageByPkg(pkg)">Eliminar</button>
+            <button class="danger" (click)="deletePackageByPkg(pkg)">
+              Eliminar
+            </button>
             <button class="secondary" (click)="copyPublicLink(pkg)">
-              {{ copiedPublicLink.has(idKey(pkg)) ? '¡Enlace copiado!' : 'Copiar enlace público' }}
+              {{
+                copiedPublicLink.has(idKey(pkg))
+                  ? "¡Enlace copiado!"
+                  : "Copiar enlace público"
+              }}
             </button>
           </div>
         </div>
         <div class="card-body">
-          <div class="row"><strong>Remitente:</strong> {{ pkg.sender_name }}</div>
-          <div class="row"><strong>Destinatario:</strong> {{ pkg.recipient_name }}</div>
-          <div class="row"><strong>Dirección:</strong> {{ pkg.recipient_address }}</div>
-          <div class="row"><strong>Descripción:</strong> {{ pkg.description }}</div>
-          <div class="row"><strong>Fecha:</strong> {{ formatDate(pkg.created_at) }}</div>
+          <div class="row">
+            <strong>Remitente:</strong> {{ pkg.sender_name }}
+          </div>
+          <div class="row">
+            <strong>Destinatario:</strong> {{ pkg.recipient_name }}
+          </div>
+          <div class="row">
+            <strong>Dirección:</strong> {{ pkg.recipient_address }}
+          </div>
+          <div class="row">
+            <strong>Descripción:</strong> {{ pkg.description }}
+          </div>
+          <div class="row">
+            <strong>Fecha:</strong> {{ formatDate(pkg.created_at) }}
+          </div>
         </div>
       </div>
     </div>
   </ng-container>
 
   <ng-template #groupedTpl>
-    <div class="groups" *ngIf="(groupedPackages$ | async) as groups; else loadingTpl">
+    <div
+      class="groups"
+      *ngIf="groupedPackages$ | async as groups; else loadingTpl"
+    >
       <div class="group" *ngFor="let g of groups; trackBy: trackByGroupKey">
         <div class="group-header" (click)="toggleGroup(g.key)">
           <div class="left">
             <h3>{{ g.title }}</h3>
             <span class="client">{{ g.clientName }}</span>
           </div>
-          <button class="toggle">{{ expandedGroups.has(g.key) ? 'Ocultar' : 'Ver' }}</button>
+          <button class="toggle">
+            {{ expandedGroups.has(g.key) ? "Ocultar" : "Ver" }}
+          </button>
         </div>
         <div class="group-body" *ngIf="expandedGroups.has(g.key)">
-          <div class="row" *ngFor="let pkg of g.packages; trackBy: trackByPackageId">
+          <div
+            class="row"
+            *ngFor="let pkg of g.packages; trackBy: trackByPackageId"
+          >
             <div class="pkg-main">
               <div class="pkg-title">{{ pkg.tracking_number }}</div>
               <div class="pkg-desc">{{ pkg.description }}</div>
@@ -63,7 +114,11 @@
             <div class="pkg-actions">
               <button (click)="editPackageByPkg(pkg)">Editar</button>
               <button class="secondary" (click)="copyPublicLink(pkg)">
-                {{ copiedPublicLink.has(idKey(pkg)) ? '¡Enlace copiado!' : 'Copiar enlace público' }}
+                {{
+                  copiedPublicLink.has(idKey(pkg))
+                    ? "¡Enlace copiado!"
+                    : "Copiar enlace público"
+                }}
               </button>
             </div>
           </div>
