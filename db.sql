@@ -126,6 +126,24 @@ CREATE TABLE IF NOT EXISTS EmailVerificationTokens (
   KEY idx_emve_is_used (emve_is_used)
 );
 
+
+DELIMITER $$
+
+CREATE EVENT IF NOT EXISTS ev_softdelete_old_delivered_packages
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_TIMESTAMP + INTERVAL 1 DAY
+DO
+BEGIN
+  UPDATE Packages
+  SET pack_is_active = 0
+  WHERE pack_status = 'delivered'
+    AND pack_is_active = 1
+    AND pack_real_delivery_date IS NOT NULL
+    AND pack_real_delivery_date < (NOW() - INTERVAL 5 DAY);
+END$$
+
+DELIMITER ;
+
 INSERT INTO Users (user_name, user_role, user_email, user_password_hash, user_is_active)
 VALUES ('Admin', 'admin', 'admin@paqueteria.com', '$2a$10$xj9xKEuc0AcYL1nMfZr.Ve9b86hsxoBMhBTMlWoVVCQKqLS5c7uv.', 1)
 ON DUPLICATE KEY UPDATE user_password_hash = VALUES(user_password_hash), user_is_active = 1;

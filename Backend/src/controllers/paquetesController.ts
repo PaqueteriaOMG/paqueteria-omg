@@ -312,12 +312,12 @@ export class PaquetesController {
         destination_address: recipient_address,
         estimated_delivery_date: estimated_delivery || null,
         quantity: quantity || 1,
-        status: status || 'pendiente'
+        status: status || 'pending'
       });
 
       await this.PackageHistoryModel.create({
         package_id: pkg.package_id,
-        new_status: 'pendiente',
+        new_status: 'pending',
         comment: 'Paquete creado',
         user_id: req.user?.id || null
       });
@@ -371,6 +371,7 @@ export class PaquetesController {
         'description',
         'quantity',
         'estimated_delivery',
+        'real_delivery_date',
         'notes',
         'status',
         // Campos legacy (por compatibilidad)
@@ -398,6 +399,7 @@ export class PaquetesController {
         status: 'status',
         quantity: 'quantity',
         estimated_delivery: 'estimated_delivery',
+        real_delivery_date: 'real_delivery_date',
         notes: 'notes',
         // Mapeo de campos legacy
         descripcion: 'description',
@@ -413,6 +415,11 @@ export class PaquetesController {
           (paquete as any)[mapCampos[campo]] = updateData[campo];
         }
       });
+
+      if (updateData['status'] === 'entregado') {
+        paquete.actual_delivery = new Date();
+        return;
+      }
 
       paquete.updated_at = new Date();
       await paquete.save();
@@ -469,6 +476,10 @@ export class PaquetesController {
       }
 
       paquete.status = estado;
+      console.log("status: ", paquete.status)
+      if (estado === 'entregado') {
+        paquete.actual_delivery = new Date();
+      }
       paquete.updated_at = new Date();
       await paquete.save();
 
@@ -689,10 +700,10 @@ export class PaquetesController {
         return;
       }
 
-      if (paquete.status === 'en_transito' || paquete.status === 'entregado') {
-        res.status(400).json({ error: 'No se puede eliminar un paquete en tránsito o entregado' });
-        return;
-      }
+      // if (paquete.status === 'en_transito' || paquete.status === 'entregado') {
+      //   res.status(400).json({ error: 'No se puede eliminar un paquete en tránsito o entregado' });
+      //   return;
+      // }
 
       const associated = await this.ShipmentPackageModel.findOne({ where: { package_id: Number(id) } });
       if (associated) {

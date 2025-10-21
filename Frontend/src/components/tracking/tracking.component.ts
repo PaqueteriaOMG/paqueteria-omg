@@ -23,10 +23,14 @@ export class TrackingComponent {
     if (!this.trackingNumber.trim()) return;
 
     this.searchPerformed = true;
-    this.packageService.searchPackages(this.trackingNumber).subscribe(packages => {
-      this.foundPackage = packages.find(p => 
-        p.tracking_number.toLowerCase() === this.trackingNumber.toLowerCase()
-      ) || null;
+    this.packageService.trackPackage(this.trackingNumber).subscribe({
+      next: (pkg) => {
+        this.foundPackage = pkg;
+      },
+      error: (err) => {
+        console.error(err);
+        this.foundPackage = null;
+      }
     });
   }
 

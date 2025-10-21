@@ -334,7 +334,7 @@ router.get('/tracking/:numero', async (req: any, res: any) => {
  *         description: Acceso prohibido
  */
 router.post('/', authorizeRoles('admin', 'empleado'), paqueteValidation, validateAndPassToController, async (req: any, res: any) => {
-  console.log("estimated_delivery", req.body.estimated_delivery);
+  console.log("status", req.body.status);
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.create(req, res);

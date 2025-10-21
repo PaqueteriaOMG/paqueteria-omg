@@ -250,6 +250,17 @@ export class PackageService {
     return of(true);
   }
 
+  trackPackage(trackingNumber: string): Observable<Package> {
+    return this.http.get<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/tracking/${trackingNumber}`)
+      .pipe(
+        map(res => res.data),
+        catchError(error => {
+          console.error('Error al rastrear el paquete:', error);
+          return throwError(() => new Error('Paquete no encontrado o error en el servidor.'));
+        })
+      );
+  }
+
   searchPackages(query: string): Observable<Package[]> {
     const packages = this.packagesSubject.value;
     const filtered = packages.filter(
