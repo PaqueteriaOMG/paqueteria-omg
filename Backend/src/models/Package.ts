@@ -22,6 +22,7 @@ export interface PackageAttributes {
   tracking_code?: string | null;
   public_tracking_code?: string | null;
   estimated_delivery_date?: Date | null;
+  real_delivery_date?: Date | null;
   quantity?: number | null;
   is_active: number;
   created_at?: Date | null;
@@ -52,6 +53,7 @@ export class Package extends Model<PackageAttributes, PackageCreationAttributes>
   public tracking_code?: string | null;
   public public_tracking_code?: string | null;
   public estimated_delivery_date?: Date | null;
+  public real_delivery_date?: Date | null;
   public quantity?: number | null;
   public is_active!: number;
   public created_at?: Date;
@@ -81,6 +83,7 @@ export const initPackageModel = (sequelize: Sequelize) => {
     tracking_code: { type: DataTypes.STRING(191), field: 'pack_tracking_code' },
     public_tracking_code: { type: DataTypes.STRING(191), field: 'pack_public_tracking_code' },
     estimated_delivery_date: { type: DataTypes.DATE, field: 'pack_estimated_delivery_date' },
+    real_delivery_date: { type: DataTypes.DATE, field: 'pack_real_delivery_date' },
     quantity: { type: DataTypes.INTEGER, field: 'pack_quantity', defaultValue: 1 },
     is_active: { type: DataTypes.TINYINT, allowNull: false, defaultValue: 1, field: 'pack_is_active' },
     created_at: { type: DataTypes.DATE, field: 'pack_created_at' },

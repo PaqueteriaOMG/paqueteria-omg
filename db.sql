@@ -45,10 +45,12 @@ CREATE TABLE IF NOT EXISTS Packages (
   pack_tracking_number VARCHAR(191) NOT NULL,
   pack_tracking_code VARCHAR(191) NULL,
   pack_public_tracking_code VARCHAR(191) NULL,
+  pack_real_delivery_date DATETIME NULL,
   pack_is_active TINYINT(1) NOT NULL DEFAULT 1,
   pack_created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   pack_updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   pack_estimated_delivery_date DATETIME NULL,
+  
   pack_quantity INT NULL,
   CONSTRAINT uq_pack_tracking_number UNIQUE (pack_tracking_number),
   CONSTRAINT uq_pack_tracking_code UNIQUE (pack_tracking_code),
