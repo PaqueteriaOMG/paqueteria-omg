@@ -52,6 +52,7 @@
   display: flex;
   gap: var(--spacing-3);
   margin-bottom: var(--spacing-4);
+  flex-wrap: wrap;
 }
 
 .package-list .view-toggle {
@@ -60,15 +61,108 @@
   margin-bottom: var(--spacing-4);
 }
 
+.package-list .view-toggle button {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--neutral-300);
+  background: var(--neutral-50);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.package-list .view-toggle button.active {
+  background: var(--primary-50);
+  border-color: var(--primary-300);
+  color: var(--primary-700);
+}
+
 .cards .card {
   padding: var(--spacing-4);
   margin-bottom: var(--spacing-3);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: var(--spacing-3);
+}
+
+.card-header .title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.card-header .title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+
+.card-header .badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.card-header .badge.pending {
+  background-color: var(--warning-50);
+  color: var(--warning-700);
+}
+
+.card-header .badge.intransit {
+  background-color: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.card-header .badge.delivered {
+  background-color: var(--success-50);
+  color: var(--success-700);
+}
+
+.card-header .badge.returned {
+  background-color: var(--error-50);
+  color: var(--error-700);
+}
+
+.card-header .actions {
+  display: flex;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.card-header .actions button {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--neutral-300);
+  background: white;
+  color: var(--neutral-700);
+  transition: all 0.2s ease;
+}
+
+.card-header .actions button:hover {
+  background: var(--neutral-100);
+  border-color: var(--neutral-400);
+}
+
+.card-header .actions button.danger {
+  background: var(--error-50);
+  color: var(--error-700);
+  border: 1px solid var(--error-200);
+}
+
+.card-header .actions button.danger:hover {
+  background: var(--error-100);
+  border-color: var(--error-300);
 }
 
 .card-header .actions button.secondary {
@@ -81,6 +175,22 @@
   background: var(--primary-100);
 }
 
+.group-body .pkg-actions button {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--neutral-300);
+  background: white;
+  color: var(--neutral-700);
+  transition: all 0.2s ease;
+}
+
+.group-body .pkg-actions button:hover {
+  background: var(--neutral-100);
+  border-color: var(--neutral-400);
+}
+
 .group-body .pkg-actions button.secondary {
   background: var(--primary-50);
   color: var(--primary-700);
@@ -89,4 +199,146 @@
 
 .group-body .pkg-actions button.secondary:hover {
   background: var(--primary-100);
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.card-body .row {
+  display: flex;
+  gap: var(--spacing-2);
+  font-size: 0.9rem;
+  color: var(--neutral-700);
+}
+
+.card-body .row strong {
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+
+.toolbar input, .toolbar select {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--neutral-300);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.toolbar input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.toolbar button {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: 1px solid var(--neutral-300);
+  background: white;
+  color: var(--neutral-700);
+  transition: all 0.2s ease;
+}
+
+.toolbar button:hover {
+  background: var(--neutral-100);
+  border-color: var(--neutral-400);
+}
+
+.toolbar button.primary {
+  background: var(--primary-600);
+  color: white;
+  border: 1px solid var(--primary-700);
+}
+
+.toolbar button.primary:hover {
+  background: var(--primary-700);
+}
+
+.groups .group {
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: white;
+  margin-bottom: var(--spacing-3);
+  overflow: hidden;
+}
+
+.groups .group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--neutral-50);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.groups .group-header .left {
+  display: flex;
+  flex-direction: column;
+}
+
+.groups .group-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.groups .group-header .client {
+  font-size: 0.9rem;
+  color: var(--neutral-600);
+}
+
+.groups .group-header button.toggle {
+  padding: var(--spacing-1) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--neutral-300);
+  background: white;
+}
+
+.groups .group-body {
+  padding: var(--spacing-3) var(--spacing-4);
+}
+
+.groups .group-body .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-2) 0;
+  border-bottom: 1px solid var(--neutral-100);
+}
+
+.groups .group-body .row:last-child {
+  border-bottom: none;
+}
+
+.groups .group-body .pkg-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.groups .group-body .pkg-title {
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+
+.groups .group-body .pkg-desc {
+  font-size: 0.875rem;
+  color: var(--neutral-600);
+}
+
+.groups .group-body .pkg-actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.loading {
+  text-align: center;
+  padding: var(--spacing-8);
+  color: var(--neutral-600);
+  font-size: 1rem;
 }

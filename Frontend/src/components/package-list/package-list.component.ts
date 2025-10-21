@@ -266,23 +266,23 @@ export class PackageListComponent implements OnInit {
   private mapPackageFromBackend(backendPackage: any): Package {
     return {
       id: backendPackage.package_id?.toString() || backendPackage.id?.toString() || '',
-      tracking_number: backendPackage.tracking_number || backendPackage.tracking_code || '',
-      sender_name: backendPackage.client?.name || backendPackage.client_name || '',
-      sender_email: backendPackage.client?.email || '',
-      sender_phone: backendPackage.client?.phone || '',
-      sender_address: backendPackage.origin_address || '',
-      recipient_name: backendPackage.client?.name || backendPackage.client_name || '',
-      recipient_email: backendPackage.client?.email || '',
-      recipient_phone: backendPackage.client?.phone || '',
-      recipient_address: backendPackage.destination_address || '',
-      weight: parseFloat(backendPackage.weight) || 0,
-      dimensions: backendPackage.dimensions || '',
-      description: backendPackage.description || '',
+      tracking_number: backendPackage.pack_tracking_number || backendPackage.tracking_code || '',
+      sender_name: backendPackage.pack_sender_name || backendPackage.sender_name || '',
+      sender_email: backendPackage.pack_sender_email || backendPackage.sender_email || '',
+      sender_phone: backendPackage.pack_sender_phone || backendPackage.sender_phone || '',
+      sender_address: backendPackage.pack_sender_address || backendPackage.sender_address || '',
+      recipient_name: backendPackage.pack_recipient_name || backendPackage.recipient_name || '',
+      recipient_email: backendPackage.pack_recipient_email || backendPackage.recipient_email || '',
+      recipient_phone: backendPackage.pack_recipient_phone || backendPackage.recipient_phone || '',
+      recipient_address: backendPackage.pack_recipient_address || backendPackage.recipient_address || '',
+      weight: parseFloat(backendPackage.pack_weight || backendPackage.weight) || 0,
+      dimensions: backendPackage.pack_dimensions || backendPackage.dimensions || '',
+      description: backendPackage.pack_description || backendPackage.description || '',
       quantity: 1,
-      status: this.mapStatus(backendPackage.status),
-      created_at: backendPackage.created_at || '',
-      updated_at: backendPackage.updated_at || '',
-      estimated_delivery: backendPackage.created_at || '', // Usando created_at como fecha estimada si no hay otra
+      status: this.mapStatus(backendPackage.pack_status || backendPackage.status),
+      created_at: backendPackage.pack_created_at || backendPackage.created_at || '',
+      updated_at: backendPackage.pack_updated_at || backendPackage.updated_at || '',
+      estimated_delivery: backendPackage.pack_created_at || backendPackage.created_at || '', // Usando created_at como fecha estimada si no hay otra
       notes: ''
     };
   }

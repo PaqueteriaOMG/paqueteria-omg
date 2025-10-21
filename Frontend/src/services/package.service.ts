@@ -146,7 +146,24 @@ export class PackageService {
 
   getPackageById(id: string): Observable<Package | undefined> {
     return this.http.get<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/${id}`)
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => {
+          if (!res.data) return undefined;
+          
+          console.log('Datos del paquete recibidos del servidor:', res.data);
+          
+          // Asegurarse de que las fechas estén en el formato correcto y que todos los campos estén presentes
+          return {
+            ...res.data,
+            estimated_delivery: res.data.estimated_delivery ? new Date(res.data.estimated_delivery).toISOString() : '',
+            actual_delivery: res.data.actual_delivery ? new Date(res.data.actual_delivery).toISOString() : undefined,
+            created_at: new Date(res.data.created_at).toISOString(),
+            updated_at: new Date(res.data.updated_at).toISOString(),
+            quantity: res.data.quantity || 1,
+            notes: res.data.notes || ''
+          };
+        })
+      );
   }
 
   getPackageStats(): Observable<PackageStats> {
@@ -176,20 +193,32 @@ export class PackageService {
 
   updatePackage(id: string, updates: Partial<Package>): Observable<Package> {
     this.loadingSubject.next(true);
+    
+    // Asegurarse de que los campos quantity, estimated_delivery y notes se incluyan en la actualización
+    console.log('Actualizando paquete con ID:', id);
+    console.log('Datos de actualización:', updates);
+    
     return this.http.put<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/${id}`, updates)
       .pipe(
-        map(res => res.data),
+        map(res => {
+          console.log('Respuesta del servidor:', res);
+          return res.data;
+        }),
         tap(updatedPkg => {
           const currentPackages = this.packagesSubject.value;
           const index = currentPackages.findIndex(p => p.id === id);
           if (index !== -1) {
             const newPackages = [...currentPackages];
-            newPackages[index] = updatedPkg;
+            newPackages[index] = {
+              ...currentPackages[index],
+              ...updatedPkg
+            };
             this.packagesSubject.next(newPackages);
           }
           this.loadingSubject.next(false);
         }),
         catchError(error => {
+          console.error('Error al actualizar el paquete:', error);
           this.loadingSubject.next(false);
           return throwError(() => error);
         })

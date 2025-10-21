@@ -250,10 +250,18 @@ export class PaquetesController {
         tracking_code: numero_seguimiento,
         public_tracking_code: public_code,
         client_id: cliente_id,
+        sender_name: sender_name,
+        sender_email: sender_email,
+        sender_phone: sender_phone,
+        sender_address: sender_address,
+        recipient_name: recipient_name,
+        recipient_email: recipient_email,
+        recipient_phone: recipient_phone,
+        recipient_address: recipient_address,
         description: description,
         weight: weight,
         dimensions: dimensions,
-        declared_value: req.body.valor_declarado || 0, // Valor por defecto si no se proporciona
+        declared_value: req.body.valor_declarado || 0,
         origin_address: sender_address,
         destination_address: recipient_address,
         status: status || 'pendiente'
@@ -301,9 +309,7 @@ export class PaquetesController {
       }
 
       // Actualizar solo los campos proporcionados
-      // Soportar tanto nuevos nombres como legacy
       const camposActualizables = [
-        // Nuevos nombres de campos
         'sender_name',
         'sender_email', 
         'sender_phone',
@@ -330,8 +336,14 @@ export class PaquetesController {
 
       const mapCampos: Record<string, string> = {
         // Mapeo de nuevos campos a campos de BD
-        sender_address: 'origin_address',
-        recipient_address: 'destination_address',
+        sender_name: 'sender_name',
+        sender_email: 'sender_email',
+        sender_phone: 'sender_phone',
+        sender_address: 'sender_address',
+        recipient_name: 'recipient_name',
+        recipient_email: 'recipient_email',
+        recipient_phone: 'recipient_phone',
+        recipient_address: 'recipient_address',
         weight: 'weight',
         dimensions: 'dimensions',
         description: 'description',
@@ -511,6 +523,14 @@ export class PaquetesController {
           tracking_code: numero_seguimiento,
           public_tracking_code: public_code,
           client_id: cliente_id,
+          sender_name: sender_name,
+          sender_email: sender_email,
+          sender_phone: sender_phone,
+          sender_address: sender_address,
+          recipient_name: recipient_name,
+          recipient_email: recipient_email,
+          recipient_phone: recipient_phone,
+          recipient_address: recipient_address,
           description: finalDescription,
           weight: finalWeight,
           dimensions: finalDimensions,

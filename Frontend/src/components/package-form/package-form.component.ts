@@ -19,7 +19,7 @@ export class PackageFormComponent implements OnInit {
   tomorrow: string;
 
   formData = {
-    sender_name: 'Juan Pérez',
+    sender_name: '',
     sender_email: 'juan.perez@email.com',
     sender_phone: '+56 9 1234 5678',
     sender_address: 'Av. Providencia 1234, Providencia, Santiago, Chile',
@@ -28,7 +28,7 @@ export class PackageFormComponent implements OnInit {
     recipient_phone: '+56 9 8765 4321',
     recipient_address: 'Calle Las Flores 567, Las Condes, Santiago, Chile',
     weight: 2.5,
-    dimensions: '30x20x15 cm',
+    dimensions: '',
     description: 'Documentos importantes',
     quantity: 1,
     estimated_delivery: '',
@@ -60,23 +60,30 @@ export class PackageFormComponent implements OnInit {
   loadPackage(id: string) {
     this.packageService.getPackageById(id).subscribe(package_ => {
       if (package_) {
+        console.log('Paquete cargado para editar:', package_);
+        // Convertir las fechas ISO a formato local para el input date
+        const estimatedDeliveryDate = package_.estimated_delivery ? 
+          new Date(package_.estimated_delivery).toISOString().split('T')[0] : 
+          this.tomorrow;
+
         this.formData = {
-          sender_name: package_.sender_name,
-          sender_email: package_.sender_email,
-          sender_phone: package_.sender_phone,
-          sender_address: package_.sender_address,
-          recipient_name: package_.recipient_name,
-          recipient_email: package_.recipient_email,
-          recipient_phone: package_.recipient_phone,
-          recipient_address: package_.recipient_address,
-          weight: package_.weight,
-          dimensions: package_.dimensions,
-          description: package_.description,
-          quantity: package_.quantity,
-          estimated_delivery: package_.estimated_delivery.split('T')[0],
+          sender_name: package_.sender_name || '',
+          sender_email: package_.sender_email || '',
+          sender_phone: package_.sender_phone || '',
+          sender_address: package_.sender_address || '',
+          recipient_name: package_.recipient_name || '',
+          recipient_email: package_.recipient_email || '',
+          recipient_phone: package_.recipient_phone || '',
+          recipient_address: package_.recipient_address || '',
+          weight: package_.weight || 0,
+          dimensions: package_.dimensions || '',
+          description: package_.description || '',
+          quantity: package_.quantity || 1,
+          estimated_delivery: estimatedDeliveryDate,
           notes: package_.notes || '',
-          status: package_.status
+          status: package_.status || PackageStatus.PENDING
         };
+        console.log('Formulario inicializado con:', this.formData);
       }
     });
   }
@@ -87,14 +94,45 @@ export class PackageFormComponent implements OnInit {
     this.isSubmitting = true;
 
     const packageData = {
-      ...this.formData,
-      estimated_delivery: new Date(this.formData.estimated_delivery).toISOString()
+      sender_name: this.formData.sender_name,
+      sender_email: this.formData.sender_email,
+      sender_phone: this.formData.sender_phone,
+      sender_address: this.formData.sender_address,
+      recipient_name: this.formData.recipient_name,
+      recipient_email: this.formData.recipient_email,
+      recipient_phone: this.formData.recipient_phone,
+      recipient_address: this.formData.recipient_address,
+      weight: this.formData.weight,
+      dimensions: this.formData.dimensions,
+      description: this.formData.description,
+      quantity: this.formData.quantity,
+      estimated_delivery: new Date(this.formData.estimated_delivery).toISOString(),
+      notes: this.formData.notes,
+      status: this.formData.status
     };
+    
+    // Asegurarse de que los campos quantity, estimated_delivery y notes se incluyan en la actualización
+    console.log('Enviando datos de paquete:', packageData);
 
     if (this.isEditMode && this.packageId) {
-      this.packageService.updatePackage(this.packageId, packageData).subscribe({
-        next: () => {
+      // Asegurarse de que los campos quantity, estimated_delivery y notes estén explícitamente incluidos
+      const updateData = {
+        ...packageData,
+        quantity: this.formData.quantity,
+        estimated_delivery: new Date(this.formData.estimated_delivery).toISOString(),
+        notes: this.formData.notes
+      };
+      
+      console.log('Datos de actualización:', updateData);
+      
+      this.packageService.updatePackage(this.packageId, updateData).subscribe({
+        next: (updatedPackage) => {
+          console.log('Paquete actualizado:', updatedPackage);
           this.router.navigate(['/paquetes']);
+        },
+        error: (error) => {
+          console.error('Error al actualizar el paquete:', error);
+          this.isSubmitting = false;
         },
         complete: () => {
           this.isSubmitting = false;

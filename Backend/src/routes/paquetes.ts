@@ -129,6 +129,11 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         description: No autorizado
  */
 router.get('/', paginationValidation, async (req: any, res: any) => {
+  // Deshabilitar caché 304
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.getAll(req, res);
@@ -159,6 +164,10 @@ router.get('/', paginationValidation, async (req: any, res: any) => {
  *         description: Paquete no encontrado
  */
 router.get('/:id', async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.getById(req, res);
@@ -579,6 +588,8 @@ const updatePaqueteValidation = [
 ];
 
 router.put('/:id', authorizeRoles('admin', 'empleado'), updatePaqueteValidation, validateAndPassToController, async (req: any, res: any) => {
+  console.log(req.body.sender_name);
+
   const mdl = req.app.locals.models || defaultModels;
   const paquetesController = new PaquetesController(mdl);
   await paquetesController.update(req, res);
