@@ -23,23 +23,18 @@ export class DashboardComponent implements OnInit {
   constructor(private packageService: PackageService, private router: Router) {
     this.packages$ = this.packageService.getPackages();
     this.stats$ = this.packageService.getPackageStats();
+  }
 
+  ngOnInit() {
     this.packages$.subscribe((respuesta) => {
       for (const packagexd of respuesta) {
         console.log(packagexd);
       }
-    })
-  }
+    });
 
-  ngOnInit() {
-    console.log(
-      this.packages$.subscribe((respuesta) => {
-        for (const packagexd of respuesta) {
-          // packagexd.status = PackageStatus[packagexd.status];
-          console.log(packagexd);
-        }
-      })
-    );
+    this.stats$.subscribe((stats) => {
+      console.log(stats);
+    });
   }
 
   getStatusText(status: PackageStatus): string {

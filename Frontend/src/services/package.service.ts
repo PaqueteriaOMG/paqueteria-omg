@@ -167,30 +167,31 @@ export class PackageService {
   }
 
   getPackageStats(): Observable<PackageStats> {
-    return this.http.get<ApiEnvelope<any>>(`${this.baseUrl}/api/paquetes/stats`)
-      .pipe(
-        map(res => {
-          // Mapear los nombres de las propiedades del backend a los nombres usados en el frontend
+    // Si no hay paquetes cargados, primero obtenemos los paquetes del servidor
+    if (this.packagesSubject.value.length === 0) {
+      return this.getPackages().pipe(
+        map(packages => {
           return {
-            total: res.data.total || 0,
-            pending: res.data.pendientes || 0,
-            in_transit: res.data.en_transito || 0,
-            delivered: res.data.entregados || 0,
-            returned: res.data.returned || 0
-          } as PackageStats;
-        }),
-        catchError(error => {
-          console.error('Error al obtener estadísticas:', error);
-          // En caso de error, devolver estadísticas en cero
-          return of({
-            total: 0,
-            pending: 0,
-            in_transit: 0,
-            delivered: 0,
-            returned: 0
-          });
+            total: packages.length,
+            pending: packages.filter((p) => p.status === PackageStatus.PENDING).length,
+            in_transit: packages.filter((p) => p.status === PackageStatus.IN_TRANSIT).length,
+            delivered: packages.filter((p) => p.status === PackageStatus.DELIVERED).length,
+            returned: packages.filter((p) => p.status === PackageStatus.RETURNED).length,
+          };
         })
       );
+    }
+    
+    // Si ya hay paquetes cargados, usamos los datos del subject
+    const packages = this.packagesSubject.value;
+    const stats: PackageStats = {
+      total: packages.length,
+      pending: packages.filter((p) => p.status === PackageStatus.PENDING).length,
+      in_transit: packages.filter((p) => p.status === PackageStatus.IN_TRANSIT).length,
+      delivered: packages.filter((p) => p.status === PackageStatus.DELIVERED).length,
+      returned: packages.filter((p) => p.status === PackageStatus.RETURNED).length,
+    };
+    return of(stats);
   }
 
   createPackage(request: CreatePackageRequest): Observable<Package> {
