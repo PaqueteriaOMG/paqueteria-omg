@@ -253,13 +253,30 @@ export class PackageListComponent implements OnInit {
         );
         return;
       }
-      const resp = await this.http
-        .get<any>(`${this.apiBase}/paquetes/${encodeURIComponent(String(id))}`)
-        .toPromise();
-      const code =
-        resp?.paqu_codigo_rastreo_publico ||
-        resp?.codigo_rastreo_publico ||
-        resp?.public_code;
+
+      // 1) Intentar obtener el código público directamente desde el objeto del paquete (si ya vino en la lista)
+      let code: string | undefined = (pkg as any).public_code || (pkg as any).public_tracking_code;
+
+      // 2) Si no está, consultar al backend con autenticación (requiere token)
+      if (!code) {
+        const token = localStorage.getItem('access_token');
+        const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+        console.log(headers)
+
+        const resp = await this.http
+          .get<any>(`${this.apiBase}/paquetes/${encodeURIComponent(String(id))}`, { headers })
+          .toPromise();
+
+        // La API envuelve la respuesta dentro de "data", así que intentamos primero allí
+        const data = resp?.data ?? resp;
+
+        code =
+          data?.paqu_codigo_rastreo_publico ||
+          data?.codigo_rastreo_publico ||
+          data?.public_code ||
+          data?.public_tracking_code;
+      }
+
       if (!code) {
         alert("Este paquete aún no tiene un código público disponible.");
         return;
