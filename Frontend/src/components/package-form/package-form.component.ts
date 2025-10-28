@@ -76,7 +76,7 @@ export class PackageFormComponent implements OnInit {
             // Obtener la fecha en formato YYYY-MM-DD para el input date
             estimatedDeliveryDate = date.getFullYear() + '-' + 
               String(date.getMonth() + 1).padStart(2, '0') + '-' + 
-              String(date.getDate()).padStart(2, '0');
+              String(date.getDate() + 1).padStart(2, '0');
           } catch (error) {
             console.error('Error al convertir fecha estimada:', error);
             estimatedDeliveryDate = this.tomorrow;

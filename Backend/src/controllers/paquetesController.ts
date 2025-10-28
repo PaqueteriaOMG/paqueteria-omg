@@ -398,7 +398,7 @@ export class PaquetesController {
         description: 'description',
         status: 'status',
         quantity: 'quantity',
-        estimated_delivery: 'estimated_delivery',
+        estimated_delivery: 'estimated_delivery_date',
         real_delivery_date: 'real_delivery_date',
         notes: 'notes',
         // Mapeo de campos legacy
@@ -412,6 +412,7 @@ export class PaquetesController {
 
       camposActualizables.forEach(campo => {
         if (updateData[campo] !== undefined && mapCampos[campo]) {
+          // console.log(`Actualizando campo: ${campo} con valor:`, updateData[campo]); // Log para depuración
           (paquete as any)[mapCampos[campo]] = updateData[campo];
         }
       });
