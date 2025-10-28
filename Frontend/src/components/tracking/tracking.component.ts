@@ -44,12 +44,26 @@ export class TrackingComponent {
     return statusMap[status] || status;
   }
 
-  formatDate(date: string): string {
-    return new Date(date).toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+  formatDate(date: string | null | undefined): string {
+    if (!date || date === '' || date === 'null' || date === 'undefined') {
+      return 'No disponible';
+    }
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return 'No disponible';
+      }
+      
+      return dateObj.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return 'No disponible';
+    }
   }
 
   isStatusActive(status: string): boolean {

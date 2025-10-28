@@ -63,14 +63,8 @@ export class PackageListComponent implements OnInit {
     private router: Router,
     private http: HttpClient
   ) {
-    // Modificar para mapear los datos del backend al modelo del frontend
-    this.packages$ = this.packageService
-      .getPackages()
-      .pipe(
-        map((packages) =>
-          packages.map((pkg) => this.mapPackageFromBackend(pkg))
-        )
-      );
+    // Los paquetes ya vienen mapeados desde el servicio
+    this.packages$ = this.packageService.getPackages();
 
     this.filteredPackages$ = combineLatest([
       this.packages$,
@@ -215,13 +209,27 @@ export class PackageListComponent implements OnInit {
 
   deletePackage(id: string) {
     if (confirm("¿Está seguro de que desea eliminar este paquete?")) {
-      this.packageService.deletePackage(id).subscribe();
+      this.packageService.deletePackage(id).subscribe({
+        next: (success) => {
+          if (success) {
+            console.log('Paquete eliminado correctamente');
+            // Opcional: mostrar notificación de éxito
+          }
+        },
+        error: (error) => {
+          console.error('Error al eliminar el paquete:', error);
+          alert('Error al eliminar el paquete. Por favor, intente nuevamente.');
+        }
+      });
     }
   }
 
   deletePackageByPkg(pkg: Package) {
     const id = (pkg as any)?.id;
-    if (id == null) return;
+    if (id == null) {
+      console.error('No se encontró el ID del paquete');
+      return;
+    }
     this.deletePackage(String(id));
   }
 
@@ -288,72 +296,4 @@ export class PackageListComponent implements OnInit {
       .slice(0, 10);
   }
 
-  // Función para mapear los datos del backend al modelo del frontend
-  private mapPackageFromBackend(backendPackage: any): Package {
-    return {
-      id:
-        backendPackage.package_id?.toString() ||
-        backendPackage.id?.toString() ||
-        "",
-      tracking_number:
-        backendPackage.pack_tracking_number ||
-        backendPackage.tracking_code ||
-        "",
-      sender_name:
-        backendPackage.pack_sender_name || backendPackage.sender_name || "",
-      sender_email:
-        backendPackage.pack_sender_email || backendPackage.sender_email || "",
-      sender_phone:
-        backendPackage.pack_sender_phone || backendPackage.sender_phone || "",
-      sender_address:
-        backendPackage.pack_sender_address ||
-        backendPackage.sender_address ||
-        "",
-      recipient_name:
-        backendPackage.pack_recipient_name ||
-        backendPackage.recipient_name ||
-        "",
-      recipient_email:
-        backendPackage.pack_recipient_email ||
-        backendPackage.recipient_email ||
-        "",
-      recipient_phone:
-        backendPackage.pack_recipient_phone ||
-        backendPackage.recipient_phone ||
-        "",
-      recipient_address:
-        backendPackage.pack_recipient_address ||
-        backendPackage.recipient_address ||
-        "",
-      weight:
-        parseFloat(backendPackage.pack_weight || backendPackage.weight) || 0,
-      dimensions:
-        backendPackage.pack_dimensions || backendPackage.dimensions || "",
-      description:
-        backendPackage.pack_description || backendPackage.description || "",
-      quantity: 1,
-      status: this.mapStatus(
-        backendPackage.pack_status || backendPackage.status
-      ),
-      created_at:
-        backendPackage.pack_created_at || backendPackage.created_at || "",
-      updated_at:
-        backendPackage.pack_updated_at || backendPackage.updated_at || "",
-      estimated_delivery:
-        backendPackage.pack_created_at || backendPackage.created_at || "", // Usando created_at como fecha estimada si no hay otra
-      notes: "",
-    };
-  }
-
-  // Mapear el estado del backend al enum PackageStatus
-  private mapStatus(status: string): PackageStatus {
-    const statusMap: Record<string, PackageStatus> = {
-      pending: PackageStatus.PENDING,
-      in_transit: PackageStatus.IN_TRANSIT,
-      delivered: PackageStatus.DELIVERED,
-      returned: PackageStatus.RETURNED,
-    };
-
-    return statusMap[status?.toLowerCase()] || PackageStatus.PENDING;
-  }
 }

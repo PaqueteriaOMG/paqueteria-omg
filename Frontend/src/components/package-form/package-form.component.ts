@@ -20,19 +20,19 @@ export class PackageFormComponent implements OnInit {
 
   formData = {
     sender_name: '',
-    sender_email: 'juan.perez@email.com',
-    sender_phone: '+56 9 1234 5678',
-    sender_address: 'Av. Providencia 1234, Providencia, Santiago, Chile',
-    recipient_name: 'María González',
-    recipient_email: 'maria.gonzalez@email.com',
-    recipient_phone: '+56 9 8765 4321',
-    recipient_address: 'Calle Las Flores 567, Las Condes, Santiago, Chile',
-    weight: 2.5,
+    sender_email: '',
+    sender_phone: '',
+    sender_address: '',
+    recipient_name: '',
+    recipient_email: '',
+    recipient_phone: '',
+    recipient_address: '',
+    weight: 0,
     dimensions: '',
-    description: 'Documentos importantes',
+    description: '',
     quantity: 1,
     estimated_delivery: '',
-    notes: 'Entregar en horario de oficina',
+    notes: '',
     status: PackageStatus.PENDING
   };
 
@@ -62,9 +62,26 @@ export class PackageFormComponent implements OnInit {
       if (package_) {
         console.log('Paquete cargado para editar:', package_);
         // Convertir las fechas ISO a formato local para el input date
-        const estimatedDeliveryDate = package_.estimated_delivery ? 
-          new Date(package_.estimated_delivery).toISOString().split('T')[0] : 
-          this.tomorrow;
+        let estimatedDeliveryDate = this.tomorrow;
+        
+        // Buscar la fecha estimada en diferentes campos del backend
+        const estimatedDate = package_.estimated_delivery || 
+                             (package_ as any).estimated_delivery_date || 
+                             (package_ as any).eta;
+        
+        if (estimatedDate) {
+          try {
+            // Crear un objeto Date y ajustar por la zona horaria local
+            const date = new Date(estimatedDate);
+            // Obtener la fecha en formato YYYY-MM-DD para el input date
+            estimatedDeliveryDate = date.getFullYear() + '-' + 
+              String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+              String(date.getDate()).padStart(2, '0');
+          } catch (error) {
+            console.error('Error al convertir fecha estimada:', error);
+            estimatedDeliveryDate = this.tomorrow;
+          }
+        }
 
         this.formData = {
           sender_name: package_.sender_name || '',
@@ -84,6 +101,11 @@ export class PackageFormComponent implements OnInit {
           status: package_.status || PackageStatus.PENDING
         };
         console.log('Formulario inicializado con:', this.formData);
+        console.log('Fecha estimada original (estimated_delivery):', package_.estimated_delivery);
+        console.log('Fecha estimada original (estimated_delivery_date):', (package_ as any).estimated_delivery_date);
+        console.log('Fecha estimada original (eta):', (package_ as any).eta);
+        console.log('Fecha estimada encontrada:', estimatedDate);
+        console.log('Fecha estimada convertida:', estimatedDeliveryDate);
       }
     });
   }
@@ -107,7 +129,7 @@ export class PackageFormComponent implements OnInit {
       description: this.formData.description,
       quantity: this.formData.quantity,
       estimated_delivery: new Date(this.formData.estimated_delivery).toISOString(),
-      notes: this.formData.notes,
+      // notes: this.formData.notes, // Comentado temporalmente
       status: this.formData.status
     };
     
@@ -115,12 +137,12 @@ export class PackageFormComponent implements OnInit {
     console.log('Enviando datos de paquete:', packageData);
 
     if (this.isEditMode && this.packageId) {
-      // Asegurarse de que los campos quantity, estimated_delivery y notes estén explícitamente incluidos
+      // Asegurarse de que los campos quantity, estimated_delivery estén explícitamente incluidos
       const updateData = {
         ...packageData,
         quantity: this.formData.quantity,
         estimated_delivery: new Date(this.formData.estimated_delivery).toISOString(),
-        notes: this.formData.notes
+        // notes: this.formData.notes // Comentado temporalmente
       };
       
       console.log('Datos de actualización:', updateData);

@@ -128,9 +128,9 @@ export class PackageService {
   getPackages(): Observable<Package[]> {
     this.loadingSubject.next(true);
     return this.http
-      .get<ApiEnvelope<Package[]>>(`${this.baseUrl}/api/paquetes`)
+      .get<ApiEnvelope<any[]>>(`${this.baseUrl}/api/paquetes`)
       .pipe(
-        map((res) => res.data), // asumiendo que tu API responde con un "data"
+        map((res) => res.data.map(pkg => this.mapPackageFromBackend(pkg))),
         tap((packages) => {
           this.packagesSubject.next(packages);
           this.loadingSubject.next(false);
@@ -196,10 +196,20 @@ export class PackageService {
 
   createPackage(request: CreatePackageRequest): Observable<Package> {
     this.loadingSubject.next(true);
-    return this.http.post<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes`, request)
+    return this.http.post<ApiEnvelope<any>>(`${this.baseUrl}/api/paquetes`, request)
       .pipe(
-        map(res => res.data),
-        tap(() => this.loadingSubject.next(false))
+        map(res => this.mapPackageFromBackend(res.data)),
+        tap((newPackage) => {
+          // Agregar el nuevo paquete a la lista local
+          const currentPackages = this.packagesSubject.value;
+          this.packagesSubject.next([...currentPackages, newPackage]);
+          this.loadingSubject.next(false);
+        }),
+        catchError(error => {
+          console.error('Error al crear el paquete:', error);
+          this.loadingSubject.next(false);
+          return throwError(() => error);
+        })
       );
   }
 
@@ -239,21 +249,32 @@ export class PackageService {
 
   deletePackage(id: string): Observable<boolean> {
     this.loadingSubject.next(true);
-
-    setTimeout(() => {
-      const currentPackages = this.packagesSubject.value;
-      const filteredPackages = currentPackages.filter((p) => p.id !== id);
-      this.packagesSubject.next(filteredPackages);
-      this.loadingSubject.next(false);
-    }, 500);
-
-    return of(true);
+    
+    return this.http.delete<ApiEnvelope<any>>(`${this.baseUrl}/api/paquetes/${id}`)
+      .pipe(
+        map(res => res.success || true),
+        tap(() => {
+          // Actualizar la lista local inmediatamente
+          const currentPackages = this.packagesSubject.value;
+          const filteredPackages = currentPackages.filter((p) => p.id !== id);
+          this.packagesSubject.next(filteredPackages);
+          this.loadingSubject.next(false);
+          
+          // Opcional: recargar desde el servidor para asegurar consistencia
+          // this.getPackages().subscribe();
+        }),
+        catchError(error => {
+          console.error('Error al eliminar el paquete:', error);
+          this.loadingSubject.next(false);
+          return throwError(() => error);
+        })
+      );
   }
 
   trackPackage(trackingNumber: string): Observable<Package> {
-    return this.http.get<ApiEnvelope<Package>>(`${this.baseUrl}/api/paquetes/tracking/${trackingNumber}`)
+    return this.http.get<ApiEnvelope<any>>(`${this.baseUrl}/api/paquetes/tracking/${trackingNumber}`)
       .pipe(
-        map(res => res.data),
+        map(res => this.mapPackageFromBackend(res.data)),
         catchError(error => {
           console.error('Error al rastrear el paquete:', error);
           return throwError(() => new Error('Paquete no encontrado o error en el servidor.'));
@@ -307,5 +328,84 @@ export class PackageService {
     });
 
     return of(Array.from(groups.values()));
+  }
+
+  // Función para mapear los datos del backend al modelo del frontend
+  private mapPackageFromBackend(backendPackage: any): Package {
+    return {
+      id:
+        backendPackage.paqu_id?.toString() ||
+        backendPackage.package_id?.toString() ||
+        backendPackage.id?.toString() ||
+        "",
+      tracking_number:
+        backendPackage.pack_tracking_number ||
+        backendPackage.tracking_code ||
+        backendPackage.tracking_number ||
+        "",
+      sender_name:
+        backendPackage.pack_sender_name || backendPackage.sender_name || "",
+      sender_email:
+        backendPackage.pack_sender_email || backendPackage.sender_email || "",
+      sender_phone:
+        backendPackage.pack_sender_phone || backendPackage.sender_phone || "",
+      sender_address:
+        backendPackage.pack_sender_address ||
+        backendPackage.sender_address ||
+        "",
+      recipient_name:
+        backendPackage.pack_recipient_name ||
+        backendPackage.recipient_name ||
+        "",
+      recipient_email:
+        backendPackage.pack_recipient_email ||
+        backendPackage.recipient_email ||
+        "",
+      recipient_phone:
+        backendPackage.pack_recipient_phone ||
+        backendPackage.recipient_phone ||
+        "",
+      recipient_address:
+        backendPackage.pack_recipient_address ||
+        backendPackage.recipient_address ||
+        "",
+      weight:
+        parseFloat(backendPackage.pack_weight || backendPackage.weight) || 0,
+      dimensions:
+        backendPackage.pack_dimensions || backendPackage.dimensions || "",
+      description:
+        backendPackage.pack_description || backendPackage.description || "",
+      quantity: parseInt(backendPackage.quantity) || 1,
+      status: this.mapStatus(
+        backendPackage.pack_status || backendPackage.status
+      ),
+      created_at:
+        backendPackage.pack_created_at || backendPackage.created_at || "",
+      updated_at:
+        backendPackage.pack_updated_at || backendPackage.updated_at || "",
+      estimated_delivery:
+        backendPackage.estimated_delivery_date ||
+        backendPackage.pack_estimated_delivery || 
+        backendPackage.estimated_delivery || 
+        backendPackage.eta ||
+        "",
+      actual_delivery:
+        backendPackage.pack_actual_delivery || 
+        backendPackage.actual_delivery || 
+        undefined,
+      notes: backendPackage.notes || "",
+    };
+  }
+
+  // Mapear el estado del backend al enum PackageStatus
+  private mapStatus(status: string): PackageStatus {
+    const statusMap: Record<string, PackageStatus> = {
+      pending: PackageStatus.PENDING,
+      in_transit: PackageStatus.IN_TRANSIT,
+      delivered: PackageStatus.DELIVERED,
+      returned: PackageStatus.RETURNED,
+    };
+
+    return statusMap[status?.toLowerCase()] || PackageStatus.PENDING;
   }
 }

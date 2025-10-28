@@ -17,6 +17,7 @@ interface PublicTrackingData {
   created_at: string;
   updated_at: string;
   eta: string | null;
+  estimated_delivery_date?: string | null;
   history: PublicTrackingEvent[];
 }
 
@@ -115,10 +116,23 @@ export class PublicTrackingComponent {
   }
 
   formatDate(dateStr?: string | null): string {
-    if (!dateStr) return '-';
+    if (!dateStr || dateStr === '' || dateStr === 'null' || dateStr === 'undefined') {
+      return 'No disponible';
+    }
+    
     try {
       const d = new Date(dateStr);
-      return d.toLocaleString();
-    } catch { return dateStr || '-'; }
+      if (isNaN(d.getTime())) {
+        return 'No disponible';
+      }
+      return d.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return 'No disponible';
+    }
   }
 }

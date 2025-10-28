@@ -56,7 +56,7 @@ const paqueteValidation = [
 
 const paginationValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('La página debe ser un número mayor a 0'),
-  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('El límite debe estar entre 1 y 100'),
+  query('limit').optional().isInt({ min: 1 }).withMessage('El límite debe ser un número mayor a 0'),
   query('sortBy').optional().isIn(['numero_seguimiento', 'descripcion', 'peso', 'fecha_creacion', 'estado']).withMessage('Campo de ordenamiento inválido'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Orden inválido')
 ];
@@ -103,7 +103,6 @@ const validateAndPassToController = (req: any, res: any, next: any) => {
  *         schema:
  *           type: integer
  *           minimum: 1
- *           maximum: 100
  *           default: 10
  *         description: Cantidad de elementos por página
  *       - in: query
