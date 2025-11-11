@@ -13,13 +13,28 @@ import { AuthService } from '../../services/auth.service';
     <h2>Crear cuenta</h2>
     <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
       <label>Nombre</label>
-      <input name="nombre" [(ngModel)]="nombre" type="text" required />
+      <input name="nombre" [(ngModel)]="nombre" type="text" required #nombreCtrl="ngModel" />
+      <small class="error" *ngIf="nombreCtrl?.invalid && nombreCtrl?.touched">
+        El nombre es obligatorio
+      </small>
 
       <label>Email</label>
-      <input name="email" [(ngModel)]="email" type="email" required />
+      <input name="email" [(ngModel)]="email" type="email" required email #emailCtrl="ngModel" />
+      <small class="error" *ngIf="emailCtrl?.invalid && emailCtrl?.touched">
+        Ingresa un correo electrónico válido
+      </small>
 
       <label>Contraseña</label>
-      <input name="password" [(ngModel)]="password" type="password" required />
+      <input name="password" [(ngModel)]="password" type="password" required [pattern]="strongPwdRegex" #passwordCtrl="ngModel" />
+      <small class="error" *ngIf="passwordCtrl?.invalid && passwordCtrl?.touched">
+        La contraseña debe tener al menos 8 caracteres e incluir mayúsculas, minúsculas, números y un carácter especial
+      </small>
+
+      <label>Confirmar contraseña</label>
+      <input name="confirmPassword" [(ngModel)]="confirmPassword" type="password" required #confirmCtrl="ngModel" />
+      <small class="error" *ngIf="confirmCtrl?.touched && password !== confirmPassword">
+        Las contraseñas no coinciden
+      </small>
 
       <label>Rol</label>
       <select name="rol" [(ngModel)]="rol" required>
@@ -33,7 +48,7 @@ import { AuthService } from '../../services/auth.service';
         <input name="admin_token" [(ngModel)]="admin_token" type="text" placeholder="token de administrador" />
       </div>
 
-      <button type="submit" [disabled]="loading">Registrarme</button>
+      <button type="submit" [disabled]="loading || !f.form.valid || password !== confirmPassword">Registrarme</button>
     </form>
 
     <p class="error" *ngIf="error">{{ error }}</p>
@@ -54,8 +69,12 @@ export class RegisterComponent {
   nombre = '';
   email = '';
   password = '';
+  confirmPassword = '';
   rol: 'admin'|'empleado'|'cliente' = 'cliente';
   admin_token = '';
+
+  // Regex de contraseña fuerte (8+ caracteres, mayúsculas, minúsculas, número y especial)
+  strongPwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
   error = '';
   loading = false;
@@ -63,7 +82,8 @@ export class RegisterComponent {
   constructor(private auth: AuthService, private router: Router) {}
 
   onSubmit() {
-    if (!this.nombre || !this.email || !this.password || !this.rol) return;
+    if (!this.nombre || !this.email || !this.password || !this.confirmPassword || !this.rol) return;
+    if (this.password !== this.confirmPassword) return;
     this.loading = true;
     this.error = '';
 

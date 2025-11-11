@@ -41,7 +41,7 @@ export class PublicTrackingComponent {
 
   ngOnInit() {
     // Soporta deep-link via /track/:code o /track?code=
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.subscribe((params: any) => {
       const paramCode = params.get('code');
       const queryCode = this.route.snapshot.queryParamMap.get('code');
       const incoming = (paramCode || queryCode || '').trim();
