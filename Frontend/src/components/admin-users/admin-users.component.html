@@ -1,0 +1,70 @@
+<div class="admin-users">
+  <h2>Administración de usuarios</h2>
+
+  <div class="filters">
+    <input type="text" placeholder="Buscar por nombre o email" [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+    <select [(ngModel)]="rol" (change)="load()">
+      <option value="">Todos los roles</option>
+      <option value="admin">Admin</option>
+      <option value="empleado">Empleado</option>
+      <option value="cliente">Cliente</option>
+    </select>
+    <select [(ngModel)]="estado" (change)="load()">
+      <option value="inactivo">Inactivos</option>
+      <option value="activo">Activos</option>
+      <option value="todos">Todos</option>
+    </select>
+    <select [(ngModel)]="sortBy" (change)="load()">
+      <option value="fecha_creacion">Fecha de creación</option>
+      <option value="nombre">Nombre</option>
+      <option value="email">Email</option>
+      <option value="rol">Rol</option>
+    </select>
+    <select [(ngModel)]="sortOrder" (change)="load()">
+      <option value="desc">Descendente</option>
+      <option value="asc">Ascendente</option>
+    </select>
+  </div>
+
+  <div class="table-wrapper" *ngIf="!loading; else loadingTpl">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Creado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let u of rows">
+          <td>{{u.id}}</td>
+          <td>{{u.nombre}}</td>
+          <td>{{u.email}}</td>
+          <td>{{u.rol}}</td>
+          <td>{{u.is_active === 1 ? 'Activo' : 'Inactivo'}}</td>
+          <td>{{u.created_at | date:'short'}}</td>
+          <td class="actions">
+            <button (click)="activate(u)" [disabled]="u.is_active === 1">Activar</button>
+            <button (click)="delete(u)">Eliminar</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pagination" *ngIf="totalPages > 1">
+      <button (click)="changePage(-1)" [disabled]="page <= 1">Anterior</button>
+      <span>Página {{page}} de {{totalPages}}</span>
+      <button (click)="changePage(1)" [disabled]="page >= totalPages">Siguiente</button>
+    </div>
+  </div>
+
+  <ng-template #loadingTpl>
+    <div class="loading">Cargando...</div>
+  </ng-template>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+</div>

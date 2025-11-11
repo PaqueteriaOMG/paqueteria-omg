@@ -1,0 +1,13 @@
+.admin-users{ max-width: 1000px; margin: 24px auto; padding: 16px; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; }
+.filters{ display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.filters input,.filters select{ padding:8px; border:1px solid #d1d5db; border-radius:8px; }
+.table-wrapper{ overflow-x:auto; }
+.users-table{ width:100%; border-collapse: collapse; }
+.users-table th,.users-table td{ padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align:left; }
+.users-table thead th{ background:#f9fafb; font-weight:600; }
+.actions button{ margin-right:8px; padding:6px 10px; border:none; border-radius:6px; cursor:pointer; }
+.actions button:first-child{ background:#059669; color:#fff; }
+.actions button:last-child{ background:#dc2626; color:#fff; }
+.pagination{ display:flex; gap:12px; align-items:center; margin-top:10px; }
+.loading{ padding: 10px; }
+.error{ color:#b91c1c; margin-top: 10px; }

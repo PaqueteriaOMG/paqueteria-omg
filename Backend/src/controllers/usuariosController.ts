@@ -45,8 +45,18 @@ export class UsuariosController {
       const offset = (page - 1) * limit;
       const rol = req.query.rol;
       const search = req.query.search || '';
+      const estado = String(req.query.estado || 'activo').toLowerCase();
+      const sortBy = String(req.query.sortBy || 'fecha_creacion').toLowerCase();
+      const sortOrder = String(req.query.sortOrder || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-      const where: any = { is_active: 1 };
+      const where: any = {};
+      // Filtrar por estado
+      if (estado === 'activo') {
+        where.is_active = 1;
+      } else if (estado === 'inactivo') {
+        where.is_active = 0;
+      } // 'todos' no aplica filtro por is_active
+
       if (rol) where.role = this.mapRoleToDb(rol);
       if (search) {
         const like = `%${search}%`;
@@ -55,10 +65,18 @@ export class UsuariosController {
           { email: { [Op.like]: like } }
         ];
       }
+      // Mapear sortBy del query a columnas reales
+      const sortMap: Record<string, string> = {
+        nombre: 'name',
+        email: 'email',
+        rol: 'role',
+        fecha_creacion: 'created_at'
+      };
+      const orderColumn = sortMap[sortBy] || 'created_at';
 
       const result = await this.UsuarioModel.findAndCountAll({
         where,
-        order: [['created_at', 'DESC']],
+        order: [[orderColumn, sortOrder]],
         limit,
         offset,
         attributes: ['id', 'name', 'email', 'role', 'is_active', 'created_at', 'updated_at']

@@ -10,6 +10,8 @@ import { HeaderComponent } from './components/header/header.component';
 import { TrackingComponent } from './components/tracking/tracking.component';
 import { ReportsComponent } from './components/reports/reports.component';
 import { SettingsComponent } from './components/settings/settings.component';
+import { AdminUsersComponent } from './components/admin-users/admin-users.component';
+import { canActivateAdmin } from './services/admin.guard';
 
 // Componentes
 import { DashboardComponent } from './components/dashboard/dashboard.component';
@@ -33,6 +35,7 @@ const routes: Routes = [
   { path: 'edit-package/:id', component: PackageFormComponent, canActivate: [canActivateAuth] },
   { path: 'tracking', component: TrackingComponent, canActivate: [canActivateAuth] },
   { path: 'reports', component: ReportsComponent, canActivate: [canActivateAuth] },
+  { path: 'admin/usuarios', component: AdminUsersComponent, canActivate: [canActivateAuth, canActivateAdmin] },
   { path: 'settings', component: SettingsComponent, canActivate: [canActivateAuth] },
   { path: 'cuenta', component: AccountComponent, canActivate: [canActivateAuth] },
   // Rutas públicas

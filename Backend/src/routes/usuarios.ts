@@ -29,7 +29,8 @@ const paginationValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('La página debe ser un número mayor a 0'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('El límite debe estar entre 1 y 100'),
   query('sortBy').optional().isIn(['nombre', 'email', 'rol', 'fecha_creacion']).withMessage('Campo de ordenamiento inválido'),
-  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Orden inválido')
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Orden inválido'),
+  query('estado').optional().isIn(['activo', 'inactivo', 'todos']).withMessage('Estado inválido')
 ];
 
 // Middleware para validar entrada y pasar al controlador
