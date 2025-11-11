@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, map, of, tap, from } from 'rxjs';
-import { httpPost } from './http-helpers';
+import { httpPost, httpGet, httpPatch } from './http-helpers';
 
 export interface User {
   id: number;
@@ -40,6 +40,11 @@ export class AuthService {
 
   private saveSession(token: string, user: User) {
     localStorage.setItem(this.tokenKey, token);
+    localStorage.setItem('user', JSON.stringify(user));
+    this.userSubject.next(user);
+  }
+
+  private updateLocalUser(user: User) {
     localStorage.setItem('user', JSON.stringify(user));
     this.userSubject.next(user);
   }
@@ -109,5 +114,24 @@ export class AuthService {
     return from(httpPost<{ message: string }>(`${this.baseUrl}/auth/verify-email`, { token })).pipe(
       map(res => ({ message: (res as any)?.message || 'Correo verificado exitosamente' }))
     );
+  }
+
+  // Perfil del usuario actual
+  getProfile(): Observable<User> {
+    return from(httpGet<User>(`${this.baseUrl}/usuarios/me/profile`, this.token!)).pipe(
+      tap(user => this.updateLocalUser(user))
+    );
+  }
+
+  updateProfile(data: Partial<Pick<User, 'nombre' | 'email'>>): Observable<User> {
+    return from(httpPatch<User>(`${this.baseUrl}/usuarios/me/profile`, data, this.token!)).pipe(
+      tap(user => this.updateLocalUser(user))
+    );
+  }
+
+  changePassword(current_password: string, new_password: string): Observable<{ message: string }> {
+    const id = this.userSubject.value?.id;
+    if (!id) return of({ message: 'No has iniciado sesión' });
+    return from(httpPatch<{ message: string }>(`${this.baseUrl}/usuarios/${id}/password`, { current_password, new_password }, this.token!));
   }
 }

@@ -18,6 +18,7 @@ import { PackageListComponent } from './components/package-list/package-list.com
 import { PackageFormComponent } from './components/package-form/package-form.component';
 import { LoginComponent } from './components/auth/login.component';
 import { RegisterComponent } from './components/auth/register.component';
+import { AccountComponent } from './components/account/account.component';
 
 // Componente público de rastreo
 import { PublicTrackingComponent } from './components/public-tracking/public-tracking.component';
@@ -33,6 +34,7 @@ const routes: Routes = [
   { path: 'tracking', component: TrackingComponent, canActivate: [canActivateAuth] },
   { path: 'reports', component: ReportsComponent, canActivate: [canActivateAuth] },
   { path: 'settings', component: SettingsComponent, canActivate: [canActivateAuth] },
+  { path: 'cuenta', component: AccountComponent, canActivate: [canActivateAuth] },
   // Rutas públicas
   { path: 'track', component: PublicTrackingComponent },
   { path: 'track/:code', component: PublicTrackingComponent },

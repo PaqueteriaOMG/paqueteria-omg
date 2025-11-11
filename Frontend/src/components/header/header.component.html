@@ -45,7 +45,23 @@
         </a> -->
 
         <ng-container *ngIf="auth.isLoggedIn$ | async; else guestLinks">
-            <span class="nav-link">{{ (auth.user$ | async)?.email }}</span>
+            <div class="user-menu-container">
+                <button type="button" class="user-avatar" (click)="toggleUserMenu()" aria-haspopup="true" aria-expanded="isUserMenuOpen">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 2a5 5 0 100 10 5 5 0 000-10zm-7 16a7 7 0 0114 0H3z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="sr-only">Menú de usuario</span>
+                </button>
+                <div class="user-dropdown" *ngIf="isUserMenuOpen">
+                    <div class="user-info">
+                        <div class="user-name">{{ (auth.user$ | async)?.nombre }}</div>
+                        <div class="user-email">{{ (auth.user$ | async)?.email }}</div>
+                    </div>
+                    <div class="user-actions">
+                        <a routerLink="/cuenta" class="dropdown-link" (click)="closeUserMenu()">Configurar cuenta</a>
+                    </div>
+                </div>
+            </div>
             <a class="nav-link" (click)="logout()">Cerrar sesión</a>
         </ng-container>
         <ng-template #guestLinks>

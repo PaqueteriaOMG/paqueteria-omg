@@ -1,4 +1,4 @@
-// Helpers HTTP sencillos para GET y POST usando fetch
+// Helpers HTTP sencillos para GET, POST y PATCH usando fetch
 // Pensados para que cualquiera pueda usarlos sin conocer Angular HttpClient.
 
 export type HttpResult<T = any> = T;
@@ -51,6 +51,15 @@ export async function httpGet<T = any>(url: string, token?: string): Promise<Htt
 export async function httpPost<T = any>(url: string, data?: any, token?: string): Promise<HttpResult<T>> {
   const headers = withAuth({ 'Accept': 'application/json', 'Content-Type': 'application/json' }, token);
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(data ?? {}) });
+  const body = await parseBody(res);
+  if (!res.ok) throw new Error(buildErrorMessage(res, body));
+  return unwrap<T>(body);
+}
+
+// PATCH simple: pasa URL, datos (JSON) y opcionalmente token
+export async function httpPatch<T = any>(url: string, data?: any, token?: string): Promise<HttpResult<T>> {
+  const headers = withAuth({ 'Accept': 'application/json', 'Content-Type': 'application/json' }, token);
+  const res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(data ?? {}) });
   const body = await parseBody(res);
   if (!res.ok) throw new Error(buildErrorMessage(res, body));
   return unwrap<T>(body);

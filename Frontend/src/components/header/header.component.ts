@@ -14,6 +14,7 @@ import { AsyncPipe, NgIf } from '@angular/common';
 export class HeaderComponent {
   user$ = this.auth.user$;
   isLoggedIn$ = this.auth.isLoggedIn$;
+  isUserMenuOpen = false;
 
   constructor(private router: Router, public auth: AuthService) {}
 
@@ -22,5 +23,13 @@ export class HeaderComponent {
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login'])
     });
+  }
+
+  toggleUserMenu() {
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+  }
+
+  closeUserMenu() {
+    this.isUserMenuOpen = false;
   }
 }
