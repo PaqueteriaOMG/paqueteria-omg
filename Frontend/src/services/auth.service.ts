@@ -38,15 +38,26 @@ export class AuthService {
     return raw ? JSON.parse(raw) as User : null;
   }
 
-  private saveSession(token: string, user: User) {
-    localStorage.setItem(this.tokenKey, token);
-    localStorage.setItem('user', JSON.stringify(user));
-    this.userSubject.next(user);
+  private normalizeUser(u: any): User {
+    const prev = this.userSubject.value;
+    const nombre = (u?.nombre ?? u?.name ?? prev?.nombre ?? '');
+    const email = (u?.email ?? prev?.email ?? '');
+    const rol = (u?.rol ?? u?.role ?? prev?.rol ?? 'cliente') as any;
+    const id = (u?.id ?? prev?.id ?? 0);
+    return { id, nombre, email, rol } as User;
   }
 
-  private updateLocalUser(user: User) {
-    localStorage.setItem('user', JSON.stringify(user));
-    this.userSubject.next(user);
+  private saveSession(token: string, user: any) {
+    localStorage.setItem(this.tokenKey, token);
+    const normalized = this.normalizeUser(user);
+    localStorage.setItem('user', JSON.stringify(normalized));
+    this.userSubject.next(normalized);
+  }
+
+  private updateLocalUser(user: any) {
+    const normalized = this.normalizeUser(user);
+    localStorage.setItem('user', JSON.stringify(normalized));
+    this.userSubject.next(normalized);
   }
 
   get token(): string | null { return localStorage.getItem(this.tokenKey); }
@@ -58,7 +69,7 @@ export class AuthService {
   login(email: string, password: string): Observable<User> {
     return from(httpPost<LoginData>(`${this.baseUrl}/auth/login`, { email, password })).pipe(
       tap(res => this.saveSession(res.token, res.user)),
-      map(res => res.user)
+      map(res => this.normalizeUser(res.user))
     );
   }
 
@@ -118,14 +129,16 @@ export class AuthService {
 
   // Perfil del usuario actual
   getProfile(): Observable<User> {
-    return from(httpGet<User>(`${this.baseUrl}/usuarios/me/profile`, this.token!)).pipe(
-      tap(user => this.updateLocalUser(user))
+    return from(httpGet<any>(`${this.baseUrl}/usuarios/me/profile`, this.token!)).pipe(
+      map(u => this.normalizeUser(u)),
+      tap(u => this.updateLocalUser(u))
     );
   }
 
   updateProfile(data: Partial<Pick<User, 'nombre' | 'email'>>): Observable<User> {
-    return from(httpPatch<User>(`${this.baseUrl}/usuarios/me/profile`, data, this.token!)).pipe(
-      tap(user => this.updateLocalUser(user))
+    return from(httpPatch<any>(`${this.baseUrl}/usuarios/me/profile`, data, this.token!)).pipe(
+      map(u => this.normalizeUser(u)),
+      tap(u => this.updateLocalUser(u))
     );
   }
 

@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, User } from '../../services/auth.service';
@@ -24,7 +24,7 @@ import { Subscription } from 'rxjs';
         <label>Correo</label>
         <input name="email" [(ngModel)]="email" type="email" required email />
 
-        <button type="submit" [disabled]="saveLoading">{{ saveLoading ? 'Guardando...' : 'Guardar cambios' }}</button>
+        <button type="submit" [disabled]="saveLoading || !profileForm.form.valid">{{ saveLoading ? 'Guardando...' : 'Guardar cambios' }}</button>
         <p class="status success" *ngIf="saveMessage">{{ saveMessage }}</p>
         <p class="status error" *ngIf="saveError">{{ saveError }}</p>
       </form>
@@ -71,7 +71,7 @@ import { Subscription } from 'rxjs';
     .status.error{ color:#b91c1c; }
   `]
 })
-export class AccountComponent implements OnDestroy {
+export class AccountComponent implements OnInit, OnDestroy {
   nombre = '';
   email = '';
   saveLoading = false;
@@ -96,6 +96,11 @@ export class AccountComponent implements OnDestroy {
         this.email = u.email;
       }
     });
+  }
+
+  ngOnInit() {
+    // sincronizar perfil al entrar a la página
+    this.auth.getProfile().subscribe({ next: () => {}, error: () => {} });
   }
 
   onSaveProfile() {
