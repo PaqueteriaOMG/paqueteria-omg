@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
   <div class="auth-container">
     <h2>Crear cuenta</h2>
@@ -52,7 +52,9 @@ import { AuthService } from '../../services/auth.service';
     </form>
 
     <p class="error" *ngIf="error">{{ error }}</p>
-    <a routerLink="/login">Ya tengo cuenta</a>
+    <div class="links">
+      <a routerLink="/login">Ya tengo cuenta</a>
+    </div>
   </div>
   `,
   styles: [`
@@ -63,6 +65,8 @@ import { AuthService } from '../../services/auth.service';
     button{ margin-top:16px; width:100%; padding:10px; background:#16a34a; color:#fff; border:none; border-radius:8px; cursor:pointer; }
     button[disabled]{ opacity:.6; cursor:not-allowed; }
     .error{ color:#b91c1c; margin-top:12px; }
+    .links{ display:flex; justify-content:space-between; margin-top:12px; }
+    .links a{ color:#2563eb; text-decoration:none; }
   `]
 })
 export class RegisterComponent {
