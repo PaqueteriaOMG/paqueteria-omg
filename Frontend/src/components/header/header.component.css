@@ -30,6 +30,12 @@
     justify-content: center;
 }
 
+.logo img {
+    height: 32px;
+    width: auto;
+    display: block;
+}
+
 .brand-text {
     font-size: 1.5rem;
     font-weight: 700;
